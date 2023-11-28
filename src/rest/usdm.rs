@@ -351,3 +351,28 @@ impl<'a> Request for CancelOrderRequest<'a> {
     const SIGNED: bool = true;
     type Response = CancelOrderResponse;
 }
+
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserCommissionRateRequest<'a> {
+    pub symbol: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recv_window: Option<usize>, // <= 60_000
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserCommissionRateResponse {
+    pub symbol: String,
+    pub maker_commission_rate: String,
+    pub taker_commission_rate: String,
+}
+
+impl<'a> Request for UserCommissionRateRequest<'a> {
+    const PRODUCT: Product = Product::UsdMFutures;
+    const METHOD: Method = Method::GET;
+    const ENDPOINT: &'static str = "/fapi/v1/commissionRate";
+    const KEYED: bool = true;
+    const SIGNED: bool = true;
+    type Response = UserCommissionRateResponse;
+}
