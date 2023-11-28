@@ -3,12 +3,6 @@ use super::StreamTopic;
 use serde::Deserialize;
 
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct BookLevelUpdate {
-    pub price: String,
-    pub qty: String,
-}
-
 #[derive(Debug, Clone, Copy)]
 pub struct AggTradeStream<'a> {
     pub symbol: &'a str,
@@ -91,6 +85,12 @@ pub struct DiffDepthEvent {
     pub bid_updates: Vec<BookLevelUpdate>,
     #[serde(rename = "a")]
     pub ask_updates: Vec<BookLevelUpdate>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct BookLevelUpdate {
+    pub price: String,
+    pub qty: String,
 }
 
 #[derive(Debug, Clone, Copy)]
