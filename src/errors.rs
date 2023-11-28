@@ -3,6 +3,7 @@ use serde::Deserialize;
 use thiserror::Error;
 use tokio_tungstenite::tungstenite;
 
+
 #[derive(Deserialize, Debug, Clone)]
 pub(crate) struct BinanceResponseError {
     pub code: i64,

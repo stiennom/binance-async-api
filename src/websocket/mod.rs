@@ -33,6 +33,7 @@ pub trait StreamTopic {
 
 type WSStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
+
 pub struct BinanceWebsocket<E> {
     stream: WSStream,
     _phantom: PhantomData<E>
