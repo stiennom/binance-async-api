@@ -114,6 +114,6 @@ impl BinanceClient {
 
     async fn handle_response<O: DeserializeOwned>(&self, resp: Response) -> Result<O, BinanceError> {
         let resp: BinanceResponse<O> = resp.json().await?;
-        Ok(resp.to_result()?)
+        resp.to_result()
     }
 }

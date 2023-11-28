@@ -74,10 +74,10 @@ impl BinanceClient {
         let url = Url::parse(&format!("{}{}", base, endpoint)).unwrap();
         let (stream, _) = match connect_async(url).await {
             Ok(v) => v,
-            Err(tungstenite::Error::Http(ref http)) => return Err(BinanceError::StartWebsocketError(
-                http.status(),
-                String::from_utf8_lossy(http.body().as_deref().unwrap_or_default()).to_string(),
-            )),
+            Err(tungstenite::Error::Http(http)) => return Err(BinanceError::StartWebsocketError {
+                status_code: http.status(),
+                body: String::from_utf8_lossy(http.body().as_deref().unwrap_or_default()).to_string(),
+            }),
             Err(e) => return Err(e.into()),
         };
         Ok(BinanceWebsocket {

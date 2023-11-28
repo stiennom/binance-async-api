@@ -4,23 +4,23 @@ use thiserror::Error;
 use tokio_tungstenite::tungstenite;
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct BinanceResponseError {
+pub(crate) struct BinanceResponseError {
     pub code: i64,
     pub msg: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(untagged)]
-pub enum BinanceResponse<T> {
+pub(crate) enum BinanceResponse<T> {
     Success(T),
     Error(BinanceResponseError),
 }
 
-impl<T: for<'a> Deserialize<'a>> BinanceResponse<T> {
-    pub fn to_result(self) -> Result<T, BinanceResponseError> {
+impl<T> BinanceResponse<T> {
+    pub(crate) fn to_result(self) -> Result<T, BinanceError> {
         match self {
             BinanceResponse::Success(t) => Ok(t),
-            BinanceResponse::Error(e) => Err(e),
+            BinanceResponse::Error(e) => Err(e.into()),
         }
     }
 }
@@ -31,8 +31,8 @@ pub enum BinanceError {
     MissingApiKey,
     #[error("No Api secret set for private api")]
     MissingApiSecret,
-    #[error("Error when try to connect websocket: {0} - {1}")]
-    StartWebsocketError(StatusCode, String),
+    #[error("Error when try to connect websocket: {status_code} - {body}")]
+    StartWebsocketError { status_code: StatusCode, body: String },
     #[error("Binance returns error: {code} - {msg}")]
     BinanceResponse { code: i64, msg: String },
 
