@@ -72,7 +72,7 @@ impl BinanceClient {
             Product::CoinMFutures => &self.config.coinm_futures_ws_endpoint,
         };
         let endpoint = topic.endpoint();
-        let url = Url::parse(&dbg!(format!("{}{}", base, endpoint))).unwrap();
+        let url = Url::parse(&format!("{}{}", base, endpoint)).unwrap();
         let (stream, _) = match connect_async(url).await {
             Ok(v) => v,
             Err(tungstenite::Error::Http(http)) => return Err(BinanceError::StartWebsocketError {

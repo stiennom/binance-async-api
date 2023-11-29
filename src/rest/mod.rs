@@ -67,7 +67,7 @@ impl BinanceClient {
             Product::UsdMFutures => &self.config.usdm_futures_rest_api_endpoint,
             Product::CoinMFutures => &self.config.coinm_futures_rest_api_endpoint,
         };
-        let url = dbg!(format!("{base}{path}?{params}"));
+        let url = format!("{base}{path}?{params}");
 
         let mut custom_headers = HeaderMap::new();
         custom_headers.insert(USER_AGENT, HeaderValue::from_static("binance-async-rs"));
@@ -113,7 +113,8 @@ impl BinanceClient {
     }
 
     async fn handle_response<O: DeserializeOwned>(&self, resp: Response) -> Result<O, BinanceError> {
-        let resp: BinanceResponse<O> = resp.json().await?;
+        let txt = dbg!(resp.text().await?);
+        let resp: BinanceResponse<O> = serde_json::from_str(txt.as_str())?;
         resp.to_result()
     }
 }
