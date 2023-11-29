@@ -158,6 +158,7 @@ pub struct BookTickerRequest<'a> {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BookTickerResponse {
     pub symbol: String,
     pub bid_price: String,
