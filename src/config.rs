@@ -32,7 +32,7 @@ impl Config {
             ws_endpoint: "wss://testnet.binance.vision".to_owned(),
 
             usdm_futures_rest_api_endpoint: "https://testnet.binancefuture.com".to_owned(),
-            usdm_futures_ws_endpoint: "https://testnet.binancefuture.com".to_owned(),
+            usdm_futures_ws_endpoint: "wss://stream.binancefuture.com".to_owned(),
 
             coinm_futures_rest_api_endpoint: "https://testnet.binancefuture.com".to_owned(),
             coinm_futures_ws_endpoint: "wss://dstream.binancefuture.com".to_owned(),
