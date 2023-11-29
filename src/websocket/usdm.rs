@@ -139,28 +139,6 @@ pub struct MarginCallEvent {
     pub positions: Vec<PositionMarginCall>,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum BalancePositionEventReason {
-    Deposit,
-    Withdraw,
-    Order,
-    FundingFee,
-    WithdrawReject,
-    Adjustment,
-    InsuranceClear,
-    AdminDeposit,
-    AdminWithdraw,
-    MarginTransfer,
-    MarginTypeChange,
-    AssetTransfer,
-    OptionsPremiumFee,
-    OptionsSettleProfit,
-    AutoExchange,
-    CoinSwapDeposit,
-    CoinSwapWithdraw,
-}
-
 #[derive(Debug, Clone, Deserialize)]
 pub struct BalancePositionUpdateEvent {
     #[serde(rename = "E")]
@@ -174,7 +152,7 @@ pub struct BalancePositionUpdateEvent {
 #[derive(Debug, Clone, Deserialize)]
 pub struct BalancePositionUpdate {
     #[serde(rename = "m")]
-    pub reason: BalancePositionEventReason,
+    pub reason: String,
     #[serde(rename = "B")]
     pub balance_updates: Vec<BalanceUpdate>,
     #[serde(rename = "P")]

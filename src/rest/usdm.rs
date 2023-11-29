@@ -3,7 +3,7 @@ use super::Request;
 use serde::{Deserialize, Serialize};
 use reqwest::Method;
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Default, Serialize)]
 pub struct ExchangeInfoRequest;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -101,7 +101,7 @@ impl Request for ExchangeInfoRequest {
     type Response = ExchangeInfoResponse;
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Default, Serialize)]
 pub struct OrderBookRequest<'a> {
     pub symbol: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -133,7 +133,7 @@ impl<'a> Request for OrderBookRequest<'a> {
     type Response = OrderBookResponse;
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Default, Serialize)]
 pub struct PriceTickerRequest<'a> {
     pub symbol: &'a str,
 }
@@ -152,7 +152,7 @@ impl<'a> Request for PriceTickerRequest<'a> {
     type Response = PriceTickerResponse;
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Default, Serialize)]
 pub struct BookTickerRequest<'a> {
     pub symbol: &'a str,
 }
@@ -174,7 +174,7 @@ impl<'a> Request for BookTickerRequest<'a> {
     type Response = BookTickerResponse;
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Default, Serialize)]
 pub struct CreateListenKeyRequest { }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -191,7 +191,7 @@ impl Request for CreateListenKeyRequest {
     type Response = CreateListenKeyResponse;
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Default, Serialize)]
 pub struct KeepAliveListenKeyRequest { }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -205,7 +205,7 @@ impl Request for KeepAliveListenKeyRequest {
     type Response = KeepAliveListenKeyResponse;
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChangePositionModeRequest<'a> {
     pub dual_side_position: &'a str, // true or false
@@ -225,7 +225,7 @@ impl<'a> Request for ChangePositionModeRequest<'a> {
     type Response = ChangePositionModeResponse;
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NewOrderRequest<'a> {
     pub symbol: &'a str,
@@ -302,7 +302,7 @@ impl<'a> Request for NewOrderRequest<'a> {
     type Response = NewOrderResponse;
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CancelOrderRequest<'a> {
     pub symbol: &'a str,
@@ -352,7 +352,7 @@ impl<'a> Request for CancelOrderRequest<'a> {
     type Response = CancelOrderResponse;
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UserCommissionRateRequest<'a> {
     pub symbol: &'a str,
