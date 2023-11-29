@@ -113,8 +113,7 @@ impl BinanceClient {
     }
 
     async fn handle_response<O: DeserializeOwned>(&self, resp: Response) -> Result<O, BinanceError> {
-        let txt = dbg!(resp.text().await?);
-        let resp: BinanceResponse<O> = serde_json::from_str(txt.as_str())?;
+        let resp: BinanceResponse<O> = resp.json().await?;
         resp.to_result()
     }
 }
