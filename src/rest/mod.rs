@@ -67,7 +67,7 @@ impl BinanceClient {
             Product::UsdMFutures => &self.config.usdm_futures_rest_api_endpoint,
             Product::CoinMFutures => &self.config.coinm_futures_rest_api_endpoint,
         };
-        let url = format!("{base}{path}?{params}");
+        let url = dbg!(format!("{base}{path}?{params}"));
 
         let mut custom_headers = HeaderMap::new();
         custom_headers.insert(USER_AGENT, HeaderValue::from_static("binance-async-rs"));
