@@ -3,7 +3,6 @@ use serde::Deserialize;
 use thiserror::Error;
 use tokio_tungstenite::tungstenite;
 
-
 #[derive(Deserialize, Debug, Clone)]
 pub(crate) struct BinanceResponseError {
     pub code: i64,
@@ -18,6 +17,7 @@ pub(crate) enum BinanceResponse<T> {
 }
 
 impl<T> BinanceResponse<T> {
+    #[allow(clippy::wrong_self_convention)]
     pub(crate) fn to_result(self) -> Result<T, BinanceError> {
         match self {
             BinanceResponse::Success(t) => Ok(t),
@@ -33,7 +33,10 @@ pub enum BinanceError {
     #[error("No Api secret set for private api")]
     MissingApiSecret,
     #[error("Error when try to connect websocket: {status_code} - {body}")]
-    StartWebsocketError { status_code: StatusCode, body: String },
+    StartWebsocketError {
+        status_code: StatusCode,
+        body: String,
+    },
     #[error("Binance returns error: {code} - {msg}")]
     BinanceResponse { code: i64, msg: String },
 

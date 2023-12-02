@@ -1,7 +1,7 @@
-use crate::client::Product;
 use super::Request;
-use serde::{Deserialize, Serialize};
+use crate::client::Product;
 use reqwest::Method;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Default, Serialize)]
 pub struct ExchangeInfoRequest;
@@ -47,9 +47,9 @@ pub struct Market {
     pub quantity_precision: usize,
     pub base_asset_precision: usize,
     pub quote_precision: usize,
-    pub underlying_type: String, // No info on this
+    pub underlying_type: String,          // No info on this
     pub underlying_sub_type: Vec<String>, // No info on this
-    pub settle_plan: usize, // No info on this
+    pub settle_plan: usize,               // No info on this
     pub trigger_protect: String,
     pub filters: Vec<SymbolFilter>,
     pub liquidation_fee: String,
@@ -176,7 +176,7 @@ impl<'a> Request for BookTickerRequest<'a> {
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize)]
-pub struct CreateListenKeyRequest { }
+pub struct CreateListenKeyRequest {}
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -193,10 +193,10 @@ impl Request for CreateListenKeyRequest {
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize)]
-pub struct KeepAliveListenKeyRequest { }
+pub struct KeepAliveListenKeyRequest {}
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct KeepAliveListenKeyResponse { }
+pub struct KeepAliveListenKeyResponse {}
 
 impl Request for KeepAliveListenKeyRequest {
     const PRODUCT: Product = Product::UsdMFutures;
@@ -215,7 +215,7 @@ pub struct ChangePositionModeRequest<'a> {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct ChangePositionModeResponse { }
+pub struct ChangePositionModeResponse {}
 
 impl<'a> Request for ChangePositionModeRequest<'a> {
     const PRODUCT: Product = Product::UsdMFutures;

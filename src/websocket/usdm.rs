@@ -1,7 +1,6 @@
-use crate::client::Product;
 use super::StreamTopic;
+use crate::client::Product;
 use serde::Deserialize;
-
 
 #[derive(Debug, Clone, Copy)]
 pub struct AggTradeStream<'a> {
@@ -32,7 +31,9 @@ pub struct AggTradeEvent {
 
 impl<'a> StreamTopic for AggTradeStream<'a> {
     const PRODUCT: Product = Product::UsdMFutures;
-    fn endpoint(&self) -> String { format!("/ws/{}@aggTrade", self.symbol.to_lowercase()) }
+    fn endpoint(&self) -> String {
+        format!("/ws/{}@aggTrade", self.symbol.to_lowercase())
+    }
     type Event = AggTradeEvent;
 }
 
@@ -63,7 +64,9 @@ pub struct BookTickerEvent {
 
 impl<'a> StreamTopic for BookTickerStream<'a> {
     const PRODUCT: Product = Product::UsdMFutures;
-    fn endpoint(&self) -> String { format!("/ws/{}@bookTicker", self.symbol.to_lowercase()) }
+    fn endpoint(&self) -> String {
+        format!("/ws/{}@bookTicker", self.symbol.to_lowercase())
+    }
     type Event = BookTickerEvent;
 }
 
@@ -100,7 +103,9 @@ pub struct DiffDepthStream<'a> {
 
 impl<'a> StreamTopic for DiffDepthStream<'a> {
     const PRODUCT: Product = Product::UsdMFutures;
-    fn endpoint(&self) -> String { format!("/ws/{}@depth@100ms", self.symbol.to_lowercase()) }
+    fn endpoint(&self) -> String {
+        format!("/ws/{}@depth@100ms", self.symbol.to_lowercase())
+    }
     type Event = DiffDepthEvent;
 }
 
@@ -327,6 +332,7 @@ pub struct ListenKeyExpiredEvent {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "e")]
+#[allow(clippy::large_enum_variant)]
 pub enum UserStreamEvent {
     #[serde(rename = "MARGIN_CALL")]
     MarginCall(MarginCallEvent),
@@ -344,6 +350,8 @@ pub enum UserStreamEvent {
 
 impl<'a> StreamTopic for UserStream<'a> {
     const PRODUCT: Product = Product::UsdMFutures;
-    fn endpoint(&self) -> String { format!("/ws/{}", self.listen_key) }
+    fn endpoint(&self) -> String {
+        format!("/ws/{}", self.listen_key)
+    }
     type Event = UserStreamEvent;
 }

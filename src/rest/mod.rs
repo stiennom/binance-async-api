@@ -1,28 +1,20 @@
+pub mod coinm;
 pub mod spot;
 pub mod usdm;
-pub mod coinm;
 
 use crate::{
-    client::{
-        Product,
-        BinanceClient,
-    },
-    errors::{
-        BinanceError,
-        BinanceResponse,
-    },
+    client::{BinanceClient, Product},
+    errors::{BinanceError, BinanceResponse},
 };
 use chrono::Utc;
 use hex::encode as hexify;
 use hmac::{Hmac, Mac};
 use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE, USER_AGENT},
-    Method,
-    Response,
+    Method, Response,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use sha2::Sha256;
-
 
 pub trait Request: Serialize {
     const PRODUCT: Product;
@@ -112,7 +104,10 @@ impl BinanceClient {
         Ok(signature)
     }
 
-    async fn handle_response<O: DeserializeOwned>(&self, resp: Response) -> Result<O, BinanceError> {
+    async fn handle_response<O: DeserializeOwned>(
+        &self,
+        resp: Response,
+    ) -> Result<O, BinanceError> {
         let resp: BinanceResponse<O> = resp.json().await?;
         resp.to_result()
     }

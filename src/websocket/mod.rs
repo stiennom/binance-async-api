@@ -1,18 +1,12 @@
+pub mod coinm;
 pub mod spot;
 pub mod usdm;
-pub mod coinm;
 
 use crate::{
-    client::{
-        Product,
-        BinanceClient
-    },
+    client::{BinanceClient, Product},
     errors::BinanceError,
 };
-use futures_util::{
-    stream::Stream,
-    StreamExt
-};
+use futures_util::{stream::Stream, StreamExt};
 use reqwest::Url;
 use serde::de::DeserializeOwned;
 use serde_json::from_str;
@@ -22,8 +16,11 @@ use std::{
     task::{Context, Poll},
 };
 use tokio::net::TcpStream;
-use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
-use tokio_tungstenite::tungstenite::{self, Message};
+use tokio_tungstenite::{
+    connect_async,
+    tungstenite::{self, Message},
+    MaybeTlsStream, WebSocketStream,
+};
 
 pub trait StreamTopic {
     const PRODUCT: Product;
@@ -33,10 +30,9 @@ pub trait StreamTopic {
 
 type WSStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
-
 pub struct BinanceWebsocket<E> {
     stream: WSStream,
-    _phantom: PhantomData<E>
+    _phantom: PhantomData<E>,
 }
 
 impl<E: DeserializeOwned + Unpin> Stream for BinanceWebsocket<E> {
@@ -51,7 +47,9 @@ impl<E: DeserializeOwned + Unpin> Stream for BinanceWebsocket<E> {
         };
         let text = match msg {
             Message::Text(msg) => msg,
-            Message::Binary(_) | Message::Frame(_) | Message::Pong(_) | Message::Ping(_) => return Poll::Pending,
+            Message::Binary(_) | Message::Frame(_) | Message::Pong(_) | Message::Ping(_) => {
+                return Poll::Pending
+            }
             Message::Close(_) => return Poll::Ready(None),
         };
 
@@ -65,7 +63,10 @@ impl<E: DeserializeOwned + Unpin> Stream for BinanceWebsocket<E> {
 }
 
 impl BinanceClient {
-    pub async fn connect_stream<T: StreamTopic>(&self, topic: T) -> Result<BinanceWebsocket<T::Event>, BinanceError> {
+    pub async fn connect_stream<T: StreamTopic>(
+        &self,
+        topic: T,
+    ) -> Result<BinanceWebsocket<T::Event>, BinanceError> {
         let base = match T::PRODUCT {
             Product::Spot => &self.config.ws_endpoint,
             Product::UsdMFutures => &self.config.usdm_futures_ws_endpoint,
@@ -75,10 +76,13 @@ impl BinanceClient {
         let url = Url::parse(&format!("{}{}", base, endpoint)).unwrap();
         let (stream, _) = match connect_async(url).await {
             Ok(v) => v,
-            Err(tungstenite::Error::Http(http)) => return Err(BinanceError::StartWebsocketError {
-                status_code: http.status(),
-                body: String::from_utf8_lossy(http.body().as_deref().unwrap_or_default()).to_string(),
-            }),
+            Err(tungstenite::Error::Http(http)) => {
+                return Err(BinanceError::StartWebsocketError {
+                    status_code: http.status(),
+                    body: String::from_utf8_lossy(http.body().as_deref().unwrap_or_default())
+                        .to_string(),
+                })
+            }
             Err(e) => return Err(e.into()),
         };
         Ok(BinanceWebsocket {

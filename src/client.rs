@@ -1,7 +1,6 @@
 use crate::config::Config;
 use reqwest::Client;
 
-
 #[derive(Debug, Clone, Copy)]
 pub enum Product {
     Spot,
