@@ -26,7 +26,12 @@ pub trait Request: Serialize {
 }
 
 impl BinanceClient {
-    pub async fn request<R>(&self, req: R) -> Result<R::Response, BinanceError>
+    pub async fn request<R>(
+        &self,
+        req: R,
+        api_key: Option<&str>,
+        api_secret: Option<&str>,
+    ) -> Result<R::Response, BinanceError>
     where
         R: Request,
     {
@@ -43,12 +48,16 @@ impl BinanceClient {
         };
 
         if R::SIGNED {
+            let secret = match api_secret {
+                Some(s) => s,
+                None => return Err(BinanceError::MissingApiSecret),
+            };
             if !params.is_empty() {
                 params.push('&');
             }
             params.push_str(&format!("timestamp={}", Utc::now().timestamp_millis()));
 
-            let signature = self.signature(&params, &body)?;
+            let signature = signature(&params, &body, secret);
             params.push_str(&format!("&signature={}", signature));
         }
 
@@ -70,7 +79,7 @@ impl BinanceClient {
             );
         }
         if R::SIGNED || R::KEYED {
-            let key = match &self.key {
+            let key = match api_key {
                 Some(key) => key,
                 None => return Err(BinanceError::MissingApiKey),
             };
@@ -88,27 +97,19 @@ impl BinanceClient {
             .send()
             .await?;
 
-        self.handle_response(resp).await
+        handle_response(resp).await
     }
+}
 
-    fn signature(&self, params: &str, body: &str) -> Result<String, BinanceError> {
-        let secret = match &self.secret {
-            Some(s) => s,
-            None => return Err(BinanceError::MissingApiSecret),
-        };
-        // Signature: hex(HMAC_SHA256(queries + data))
-        let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes()).unwrap();
-        let sign_message = format!("{}{}", params, body);
-        mac.update(sign_message.as_bytes());
-        let signature = hexify(mac.finalize().into_bytes());
-        Ok(signature)
-    }
+fn signature(params: &str, body: &str, secret: &str) -> String {
+    // Signature: hex(HMAC_SHA256(queries + data))
+    let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes()).unwrap();
+    let sign_message = format!("{}{}", params, body);
+    mac.update(sign_message.as_bytes());
+    hexify(mac.finalize().into_bytes())
+}
 
-    async fn handle_response<O: DeserializeOwned>(
-        &self,
-        resp: Response,
-    ) -> Result<O, BinanceError> {
-        let resp: BinanceResponse<O> = resp.json().await?;
-        resp.to_result()
-    }
+async fn handle_response<O: DeserializeOwned>(resp: Response) -> Result<O, BinanceError> {
+    let resp: BinanceResponse<O> = resp.json().await?;
+    resp.to_result()
 }
