@@ -48,7 +48,7 @@ impl<E: DeserializeOwned + Unpin> Stream for BinanceWebsocket<E> {
         let text = match msg {
             Message::Text(msg) => msg,
             Message::Binary(_) | Message::Frame(_) | Message::Pong(_) | Message::Ping(_) => {
-                return Poll::Pending
+                return Poll::Pending;
             }
             Message::Close(_) => return Poll::Ready(None),
         };
