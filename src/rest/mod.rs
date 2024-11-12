@@ -114,8 +114,13 @@ async fn handle_response<O: DeserializeOwned>(resp: Response) -> Result<BinanceR
     let status_code = resp.status();
     let headers = resp.headers().clone();
     let resp_text = resp.text().await?;
-    dbg!(&resp_text);
-    let resp_content: BinanceResponseContent<O> = from_str(&resp_text).unwrap();
+    let resp_content: BinanceResponseContent<O> = match from_str(&resp_text) {
+        Ok(r) => r,
+        Err(e) => {
+            println!("{}", resp_text);
+            panic!("Failed to parse response: {}", e);
+        },
+    };
     // let resp_content: BinanceResponseContent<O> = resp.json().await?;
     match resp_content {
         BinanceResponseContent::Success(content) => Ok(BinanceResponse {

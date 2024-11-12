@@ -51,8 +51,13 @@ impl<E: DeserializeOwned + Unpin> Stream for BinanceWebsocket<E> {
             Message::Close(_) => return Poll::Ready(None),
         };
 
-        dbg!(&text);
-        let event: E = from_str(&text).unwrap();
+        let event: E = match from_str(&text) {
+            Ok(r) => r,
+            Err(e) => {
+                println!("{}", text);
+                panic!("Failed to parse event: {}", e);
+            },
+        };
 
         Poll::Ready(Some(Ok(event)))
     }

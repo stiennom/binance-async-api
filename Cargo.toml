@@ -1,6 +1,6 @@
 [package]
 name = "binance-async-api"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
 authors = ["Stiennon Manoe <manoe.stiennon@student.unamur.be>"]
 description = "Binance async connector using tokio runtime"
@@ -20,5 +20,6 @@ serde_qs = "^0.12.0"
 sha2 = "^0.10"
 thiserror = "^1"
 tokio = { version = "^1.34.0" }
+tokio-test = "0.4.4"
 tokio-tungstenite = { version = "^0.20.0", features = ["native-tls"] }
 url = "^2"

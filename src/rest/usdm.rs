@@ -388,3 +388,45 @@ impl<'a> Request for UserCommissionRateRequest<'a> {
     const SIGNED: bool = true;
     type Response = UserCommissionRateResponse;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::client;
+    use tokio_test::block_on;
+
+    #[test]
+    fn test_exchange_info_request() {
+        let client = client::BinanceClient::new();
+        let req = ExchangeInfoRequest;
+        let res = block_on(client.request(req, None, None));
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_order_book_request() {
+        let client = client::BinanceClient::new();
+        let req = OrderBookRequest {
+            symbol: "BTCUSDT",
+            limit: Some(5),
+        };
+        let res = block_on(client.request(req, None, None));
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_price_ticker_request() {
+        let client = client::BinanceClient::new();
+        let req = PriceTickerRequest { symbol: "BTCUSDT" };
+        let res = block_on(client.request(req, None, None));
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_book_ticker_request() {
+        let client = client::BinanceClient::new();
+        let req = BookTickerRequest { symbol: "BTCUSDT" };
+        let res = block_on(client.request(req, None, None));
+        assert!(res.is_ok());
+    }
+}
