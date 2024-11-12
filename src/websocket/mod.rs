@@ -79,8 +79,8 @@ impl BinanceClient {
             Err(tungstenite::Error::Http(http)) => {
                 return Err(BinanceError::StartWebsocketError {
                     status_code: http.status(),
-                    body: String::from_utf8_lossy(http.body().as_deref().unwrap_or_default())
-                        .to_string(),
+                    headers: http.headers().clone(),
+                    body: String::from_utf8_lossy(http.body().as_deref().unwrap_or_default()).to_string(),
                 })
             }
             Err(e) => return Err(e.into()),

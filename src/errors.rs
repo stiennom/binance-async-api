@@ -1,29 +1,26 @@
-use reqwest::{header::InvalidHeaderValue, StatusCode};
+use reqwest::{header::InvalidHeaderValue, StatusCode, header::HeaderMap};
 use serde::Deserialize;
 use thiserror::Error;
 use tokio_tungstenite::tungstenite;
 
 #[derive(Deserialize, Debug, Clone)]
-pub(crate) struct BinanceResponseError {
+pub struct BinanceResponseError {
     pub code: i64,
     pub msg: String,
 }
 
-#[derive(Deserialize, Debug, Clone)]
-#[serde(untagged)]
-pub(crate) enum BinanceResponse<T> {
-    Success(T),
-    Error(BinanceResponseError),
+#[derive(Debug, Clone)]
+pub struct BinanceResponse<T> {
+    pub status_code: StatusCode,
+    pub headers: HeaderMap,
+    pub content: T,
 }
 
-impl<T> BinanceResponse<T> {
-    #[allow(clippy::wrong_self_convention)]
-    pub(crate) fn to_result(self) -> Result<T, BinanceError> {
-        match self {
-            BinanceResponse::Success(t) => Ok(t),
-            BinanceResponse::Error(e) => Err(e.into()),
-        }
-    }
+#[derive(Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub(crate) enum BinanceResponseContent<T> {
+    Success(T),
+    Error(BinanceResponseError),
 }
 
 #[derive(Debug, Error)]
@@ -35,10 +32,15 @@ pub enum BinanceError {
     #[error("Error when try to connect websocket: {status_code} - {body}")]
     StartWebsocketError {
         status_code: StatusCode,
+        headers: HeaderMap,
         body: String,
     },
-    #[error("Binance returns error: {code} - {msg}")]
-    BinanceResponse { code: i64, msg: String },
+    #[error("Binance returns error: {} - {}", content.code, content.msg)]
+    BinanceResponse {
+        status_code: StatusCode,
+        headers: HeaderMap,
+        content: BinanceResponseError,
+    },
 
     #[error(transparent)]
     Websocket(#[from] tungstenite::Error),
@@ -50,13 +52,4 @@ pub enum BinanceError {
     Reqwest(#[from] reqwest::Error),
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
-}
-
-impl From<BinanceResponseError> for BinanceError {
-    fn from(v: BinanceResponseError) -> Self {
-        Self::BinanceResponse {
-            code: v.code,
-            msg: v.msg,
-        }
-    }
 }

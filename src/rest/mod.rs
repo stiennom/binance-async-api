@@ -4,7 +4,7 @@ pub mod usdm;
 
 use crate::{
     client::{BinanceClient, Product},
-    errors::{BinanceError, BinanceResponse},
+    errors::{BinanceError, BinanceResponse, BinanceResponseContent},
 };
 use chrono::Utc;
 use hex::encode as hexify;
@@ -31,7 +31,7 @@ impl BinanceClient {
         req: R,
         api_key: Option<&str>,
         api_secret: Option<&str>,
-    ) -> Result<R::Response, BinanceError>
+    ) -> Result<BinanceResponse<R::Response>, BinanceError>
     where
         R: Request,
     {
@@ -61,17 +61,17 @@ impl BinanceClient {
             params.push_str(&format!("&signature={}", signature));
         }
 
-        let path = R::ENDPOINT.to_string();
+        let path = R::ENDPOINT;
 
         let base = match R::PRODUCT {
-            Product::Spot => &self.config.rest_api_endpoint,
-            Product::UsdMFutures => &self.config.usdm_futures_rest_api_endpoint,
-            Product::CoinMFutures => &self.config.coinm_futures_rest_api_endpoint,
+            Product::Spot => self.config.rest_api_endpoint,
+            Product::UsdMFutures => self.config.usdm_futures_rest_api_endpoint,
+            Product::CoinMFutures => self.config.coinm_futures_rest_api_endpoint,
         };
         let url = format!("{base}{path}?{params}");
 
         let mut custom_headers = HeaderMap::new();
-        custom_headers.insert(USER_AGENT, HeaderValue::from_static("binance-async-rs"));
+        custom_headers.insert(USER_AGENT, HeaderValue::from_static("binance-async-api"));
         if !body.is_empty() {
             custom_headers.insert(
                 CONTENT_TYPE,
@@ -109,7 +109,20 @@ fn signature(params: &str, body: &str, secret: &str) -> String {
     hexify(mac.finalize().into_bytes())
 }
 
-async fn handle_response<O: DeserializeOwned>(resp: Response) -> Result<O, BinanceError> {
-    let resp: BinanceResponse<O> = resp.json().await?;
-    resp.to_result()
+async fn handle_response<O: DeserializeOwned>(resp: Response) -> Result<BinanceResponse<O>, BinanceError> {
+    let status_code = resp.status();
+    let headers = resp.headers().clone();
+    let resp_content: BinanceResponseContent<O> = resp.json().await?;
+    match resp_content {
+        BinanceResponseContent::Success(content) => Ok(BinanceResponse {
+            status_code,
+            headers,
+            content,
+        }),
+        BinanceResponseContent::Error(content) => Err(BinanceError::BinanceResponse {
+            status_code,
+            headers,
+            content,
+        }),
+    }
 }
