@@ -11,9 +11,7 @@ use reqwest::Url;
 use serde::de::DeserializeOwned;
 use serde_json::from_str;
 use std::{
-    marker::PhantomData,
-    pin::Pin,
-    task::{Context, Poll},
+    marker::PhantomData, pin::Pin, task::{Context, Poll}
 };
 use tokio::net::TcpStream;
 use tokio_tungstenite::{
