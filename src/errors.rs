@@ -1,4 +1,4 @@
-use reqwest::{header::InvalidHeaderValue, StatusCode, header::HeaderMap};
+use reqwest::{StatusCode, header::HeaderMap};
 use serde::Deserialize;
 use thiserror::Error;
 use tokio_tungstenite::tungstenite;
@@ -25,6 +25,8 @@ pub(crate) enum BinanceResponseContent<T> {
 
 #[derive(Debug, Error)]
 pub enum BinanceError {
+    #[error("Api key is invalid")]
+    InvalidApiKey,
     #[error("No Api key set for private api")]
     MissingApiKey,
     #[error("No Api secret set for private api")]
@@ -43,13 +45,7 @@ pub enum BinanceError {
     },
 
     #[error(transparent)]
-    Websocket(#[from] tungstenite::Error),
+    WebsocketError(#[from] tungstenite::Error),
     #[error(transparent)]
-    SerdeQs(#[from] serde_qs::Error),
-    #[error(transparent)]
-    HttpHeader(#[from] InvalidHeaderValue),
-    #[error(transparent)]
-    Reqwest(#[from] reqwest::Error),
-    #[error(transparent)]
-    SerdeJson(#[from] serde_json::Error),
+    RequestError(#[from] reqwest::Error),
 }

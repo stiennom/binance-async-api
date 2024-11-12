@@ -12,6 +12,7 @@ pub struct ExchangeInfoResponse {
     pub exchange_filters: Vec<ExchangeFilter>,
     pub rate_limits: Vec<RateLimit>,
     pub server_time: usize,
+    pub assets: Vec<Asset>,
     pub symbols: Vec<Market>,
 }
 
@@ -31,10 +32,18 @@ pub struct RateLimit {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct Asset {
+    pub asset: String,
+    pub margin_available: bool,
+    pub auto_asset_exchange: Option<usize>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Market {
     pub symbol: String,
     pub pair: String,
-    pub contract_type: Option<String>,
+    pub contract_type: String,
     pub delivery_date: usize,
     pub onboard_date: usize,
     pub status: String,
@@ -47,11 +56,13 @@ pub struct Market {
     pub quantity_precision: usize,
     pub base_asset_precision: usize,
     pub quote_precision: usize,
-    pub underlying_type: String,          // No info on this
-    pub underlying_sub_type: Vec<String>, // No info on this
-    pub settle_plan: usize,               // No info on this
+    pub underlying_type: String,
+    pub underlying_sub_type: Vec<String>,
+    pub settle_plan: usize,
     pub trigger_protect: String,
     pub filters: Vec<SymbolFilter>,
+    pub order_type: Vec<String>,
+    pub time_in_force: Vec<String>,
     pub liquidation_fee: String,
     pub market_take_bound: String,
 }

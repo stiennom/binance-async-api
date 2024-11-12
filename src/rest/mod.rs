@@ -14,6 +14,7 @@ use reqwest::{
     Method, Response,
 };
 use serde::{de::DeserializeOwned, Serialize};
+use serde_json::from_str;
 use sha2::Sha256;
 
 pub trait Request: Serialize {
@@ -36,13 +37,13 @@ impl BinanceClient {
         R: Request,
     {
         let mut params = if matches!(R::METHOD, Method::GET) {
-            serde_qs::to_string(&req)?
+            serde_qs::to_string(&req).unwrap()
         } else {
             String::new()
         };
 
         let body = if !matches!(R::METHOD, Method::GET) {
-            serde_qs::to_string(&req)?
+            serde_qs::to_string(&req).unwrap()
         } else {
             String::new()
         };
@@ -85,7 +86,7 @@ impl BinanceClient {
             };
             custom_headers.insert(
                 HeaderName::from_static("x-mbx-apikey"),
-                HeaderValue::from_str(key)?,
+                HeaderValue::from_str(key).map_err(|_| BinanceError::InvalidApiKey)?,
             );
         }
 
@@ -112,7 +113,10 @@ fn signature(params: &str, body: &str, secret: &str) -> String {
 async fn handle_response<O: DeserializeOwned>(resp: Response) -> Result<BinanceResponse<O>, BinanceError> {
     let status_code = resp.status();
     let headers = resp.headers().clone();
-    let resp_content: BinanceResponseContent<O> = resp.json().await?;
+    let resp_text = resp.text().await?;
+    dbg!(&resp_text);
+    let resp_content: BinanceResponseContent<O> = from_str(&resp_text).unwrap();
+    // let resp_content: BinanceResponseContent<O> = resp.json().await?;
     match resp_content {
         BinanceResponseContent::Success(content) => Ok(BinanceResponse {
             status_code,
