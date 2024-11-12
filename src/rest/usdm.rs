@@ -61,7 +61,7 @@ pub struct Market {
     pub underlying_sub_type: Vec<String>,
     pub trigger_protect: String,
     pub filters: Vec<SymbolFilter>,
-    pub order_type: Vec<String>,
+    pub order_types: Vec<String>,
     pub time_in_force: Vec<String>,
     pub liquidation_fee: String,
     pub market_take_bound: String,
@@ -399,8 +399,9 @@ mod tests {
     fn test_exchange_info_request() {
         let client = client::BinanceClient::new();
         let req = ExchangeInfoRequest;
-        let res = block_on(client.request(req, None, None));
-        assert!(res.is_ok());
+        let res = block_on(client.request(req, None, None))
+            .expect("Failed to get exchange info");
+        assert!(res.status_code.is_success());
     }
 
     #[test]
@@ -410,23 +411,26 @@ mod tests {
             symbol: "BTCUSDT",
             limit: Some(5),
         };
-        let res = block_on(client.request(req, None, None));
-        assert!(res.is_ok());
+        let res = block_on(client.request(req, None, None))
+            .expect("Failed to get order book");
+        assert!(res.status_code.is_success());
     }
 
     #[test]
     fn test_price_ticker_request() {
         let client = client::BinanceClient::new();
         let req = PriceTickerRequest { symbol: "BTCUSDT" };
-        let res = block_on(client.request(req, None, None));
-        assert!(res.is_ok());
+        let res = block_on(client.request(req, None, None))
+            .expect("Failed to get price ticker");
+        assert!(res.status_code.is_success());
     }
 
     #[test]
     fn test_book_ticker_request() {
         let client = client::BinanceClient::new();
         let req = BookTickerRequest { symbol: "BTCUSDT" };
-        let res = block_on(client.request(req, None, None));
-        assert!(res.is_ok());
+        let res = block_on(client.request(req, None, None))
+            .expect("Failed to get book ticker");
+        assert!(res.status_code.is_success());
     }
 }

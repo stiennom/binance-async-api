@@ -9,9 +9,9 @@ use crate::{
 use futures_util::{stream::Stream, StreamExt};
 use reqwest::Url;
 use serde::de::DeserializeOwned;
-use serde_json::from_str;
+use serde_json::{from_str, Value};
 use std::{
-    marker::PhantomData, pin::Pin, task::{Context, Poll}
+    marker::PhantomData, pin::Pin, str::FromStr, task::{Context, Poll}
 };
 use tokio::net::TcpStream;
 use tokio_tungstenite::{
@@ -54,8 +54,10 @@ impl<E: DeserializeOwned + Unpin> Stream for BinanceWebsocket<E> {
         let event: E = match from_str(&text) {
             Ok(r) => r,
             Err(e) => {
-                println!("{}", text);
-                panic!("Failed to parse event: {}", e);
+                let val = Value::from_str(&text).unwrap();
+                eprintln!("Failed to parse event:");
+                eprintln!("{:#?}", val.as_object().unwrap());
+                panic!("parsing error: {}", e);
             },
         };
 

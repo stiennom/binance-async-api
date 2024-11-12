@@ -2,6 +2,8 @@ pub mod coinm;
 pub mod spot;
 pub mod usdm;
 
+use std::str::FromStr;
+
 use crate::{
     client::{BinanceClient, Product},
     errors::{BinanceError, BinanceResponse, BinanceResponseContent},
@@ -14,7 +16,7 @@ use reqwest::{
     Method, Response,
 };
 use serde::{de::DeserializeOwned, Serialize};
-use serde_json::from_str;
+use serde_json::{from_str, Value};
 use sha2::Sha256;
 
 pub trait Request: Serialize {
@@ -114,24 +116,22 @@ async fn handle_response<O: DeserializeOwned>(resp: Response) -> Result<BinanceR
     let status_code = resp.status();
     let headers = resp.headers().clone();
     let resp_text = resp.text().await?;
-    let resp_content: BinanceResponseContent<O> = match from_str(&resp_text) {
-        Ok(r) => r,
+    match from_str(&resp_text) {
+        Ok(BinanceResponseContent::Success(content)) => Ok(BinanceResponse {
+            status_code,
+            headers,
+            content,
+        }),
+        Ok(BinanceResponseContent::Error(content)) => Err(BinanceError::BinanceResponse {
+            status_code,
+            headers,
+            content,
+        }),
         Err(e) => {
-            println!("{}", resp_text);
-            panic!("Failed to parse response: {}", e);
+            let val = Value::from_str(&resp_text).unwrap();
+            eprintln!("Failed to parse response:");
+            eprintln!("{:#?}", val.as_object().unwrap());
+            panic!("parsing error: {}", e);
         },
-    };
-    // let resp_content: BinanceResponseContent<O> = resp.json().await?;
-    match resp_content {
-        BinanceResponseContent::Success(content) => Ok(BinanceResponse {
-            status_code,
-            headers,
-            content,
-        }),
-        BinanceResponseContent::Error(content) => Err(BinanceError::BinanceResponse {
-            status_code,
-            headers,
-            content,
-        }),
     }
 }
