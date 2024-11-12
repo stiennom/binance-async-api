@@ -14,10 +14,11 @@ pub struct ExchangeInfoResponse {
     pub server_time: usize,
     pub assets: Vec<Asset>,
     pub symbols: Vec<Market>,
+    pub timezone: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub enum ExchangeFilter {
+pub struct ExchangeFilter {
     // No info about this on binance api docs
 }
 
@@ -35,7 +36,7 @@ pub struct RateLimit {
 pub struct Asset {
     pub asset: String,
     pub margin_available: bool,
-    pub auto_asset_exchange: Option<usize>,
+    pub auto_asset_exchange: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -58,7 +59,6 @@ pub struct Market {
     pub quote_precision: usize,
     pub underlying_type: String,
     pub underlying_sub_type: Vec<String>,
-    pub settle_plan: usize,
     pub trigger_protect: String,
     pub filters: Vec<SymbolFilter>,
     pub order_type: Vec<String>,
