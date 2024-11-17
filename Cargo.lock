@@ -82,7 +82,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
 
 [[package]]
-name = "binance_async_api"
+name = "binance-async-api"
 version = "0.2.4"
 dependencies = [
  "chrono",
