@@ -1,5 +1,5 @@
 [package]
-name = "binance-async-api"
+name = "binance_async_api"
 version = "0.2.4"
 edition = "2021"
 authors = ["Stiennon Manoe <manoe.stiennon@student.unamur.be>"]
