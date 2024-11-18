@@ -29,7 +29,7 @@ pub struct AggTradeEvent {
     pub buyer_is_maker: bool,
 }
 
-impl<'a> StreamTopic for AggTradeStream<'a> {
+impl StreamTopic for AggTradeStream<'_> {
     const PRODUCT: Product = Product::UsdMFutures;
     fn endpoint(&self) -> String {
         format!("/ws/{}@aggTrade", self.symbol.to_lowercase())
@@ -62,7 +62,7 @@ pub struct BookTickerEvent {
     pub best_ask_qty: String,
 }
 
-impl<'a> StreamTopic for BookTickerStream<'a> {
+impl StreamTopic for BookTickerStream<'_> {
     const PRODUCT: Product = Product::UsdMFutures;
     fn endpoint(&self) -> String {
         format!("/ws/{}@bookTicker", self.symbol.to_lowercase())
@@ -101,7 +101,7 @@ pub struct DiffDepthStream<'a> {
     pub symbol: &'a str,
 }
 
-impl<'a> StreamTopic for DiffDepthStream<'a> {
+impl StreamTopic for DiffDepthStream<'_> {
     const PRODUCT: Product = Product::UsdMFutures;
     fn endpoint(&self) -> String {
         format!("/ws/{}@depth@100ms", self.symbol.to_lowercase())
