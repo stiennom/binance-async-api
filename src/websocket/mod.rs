@@ -71,7 +71,7 @@ impl<E: DeserializeOwned + Unpin> Stream for BinanceWebsocket<E> {
 impl BinanceClient {
     pub async fn connect_stream<T: StreamTopic>(
         &self,
-        topic: T,
+        topic: &T,
     ) -> Result<BinanceWebsocket<T::Event>, BinanceError> {
         let base = match T::PRODUCT {
             Product::Spot => &self.config.ws_endpoint,

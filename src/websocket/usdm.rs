@@ -348,7 +348,7 @@ pub enum UserStreamEvent {
     ListenKeyExpired(ListenKeyExpiredEvent),
 }
 
-impl<'a> StreamTopic for UserStream<'a> {
+impl StreamTopic for UserStream<'_> {
     const PRODUCT: Product = Product::UsdMFutures;
     fn endpoint(&self) -> String {
         format!("/ws/{}", self.listen_key)

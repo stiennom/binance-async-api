@@ -19,50 +19,107 @@ use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{from_str, Value};
 use sha2::Sha256;
 
-pub trait Request: Serialize {
+pub trait Request: Serialize + KeyedRequest {}
+
+pub trait KeyedRequest: Serialize + SignedRequest {}
+
+pub trait SignedRequest: Serialize {
     const PRODUCT: Product;
     const ENDPOINT: &'static str;
     const METHOD: Method;
-    const KEYED: bool = false; // SIGNED imples KEYED no matter KEYED is true or false
-    const SIGNED: bool = false;
     type Response: DeserializeOwned;
 }
 
 impl BinanceClient {
-    pub async fn request<R>(
+    pub async fn request<R: Request>(
         &self,
-        req: R,
-        api_key: Option<&str>,
-        api_secret: Option<&str>,
-    ) -> Result<BinanceResponse<R::Response>, BinanceError>
-    where
-        R: Request,
-    {
-        let mut params = if matches!(R::METHOD, Method::GET) {
-            serde_qs::to_string(&req).unwrap()
-        } else {
-            String::new()
+        req: &R,
+    ) -> Result<BinanceResponse<R::Response>, BinanceError> {
+        let params = build_params(req);
+        let body = build_body(req);
+        let path = R::ENDPOINT;
+        let base = match R::PRODUCT {
+            Product::Spot => self.config.rest_api_endpoint,
+            Product::UsdMFutures => self.config.usdm_futures_rest_api_endpoint,
+            Product::CoinMFutures => self.config.coinm_futures_rest_api_endpoint,
         };
+        let url = format!("{base}{path}?{params}");
 
-        let body = if !matches!(R::METHOD, Method::GET) {
-            serde_qs::to_string(&req).unwrap()
-        } else {
-            String::new()
-        };
-
-        if R::SIGNED {
-            let secret = match api_secret {
-                Some(s) => s,
-                None => return Err(BinanceError::MissingApiSecret),
-            };
-            if !params.is_empty() {
-                params.push('&');
-            }
-            params.push_str(&format!("timestamp={}", Utc::now().timestamp_millis()));
-
-            let signature = signature(&params, &body, secret);
-            params.push_str(&format!("&signature={}", signature));
+        let mut custom_headers = HeaderMap::new();
+        custom_headers.insert(USER_AGENT, HeaderValue::from_static("binance-async-api"));
+        if !body.is_empty() {
+            custom_headers.insert(
+                CONTENT_TYPE,
+                HeaderValue::from_static("application/x-www-form-urlencoded"),
+            );
         }
+
+        let resp = self
+            .client
+            .request(R::METHOD, url.as_str())
+            .headers(custom_headers)
+            .body(body)
+            .send()
+            .await?;
+
+        handle_response(resp).await
+    }
+
+    pub async fn keyed_request<R: KeyedRequest>(
+        &self,
+        req: &R,
+        api_key: &str,
+    ) -> Result<BinanceResponse<R::Response>, BinanceError> {
+        let params = build_params(req);
+        let body = build_body(req);
+        let path = R::ENDPOINT;
+        let base = match R::PRODUCT {
+            Product::Spot => self.config.rest_api_endpoint,
+            Product::UsdMFutures => self.config.usdm_futures_rest_api_endpoint,
+            Product::CoinMFutures => self.config.coinm_futures_rest_api_endpoint,
+        };
+        let url = format!("{base}{path}?{params}");
+
+        let mut custom_headers = HeaderMap::new();
+        custom_headers.insert(USER_AGENT, HeaderValue::from_static("binance-async-api"));
+        if !body.is_empty() {
+            custom_headers.insert(
+                CONTENT_TYPE,
+                HeaderValue::from_static("application/x-www-form-urlencoded"),
+            );
+        }
+        custom_headers.insert(
+            HeaderName::from_static("x-mbx-apikey"),
+            HeaderValue::from_str(api_key).map_err(|_| BinanceError::InvalidApiKey)?,
+        );
+
+        let resp = self
+            .client
+            .request(R::METHOD, url.as_str())
+            .headers(custom_headers)
+            .body(body)
+            .send()
+            .await?;
+
+        handle_response(resp).await
+    }
+
+    pub async fn signed_request<R: Request>(
+        &self,
+        req: &R,
+        api_key: &str,
+        api_secret: &str,
+    ) -> Result<BinanceResponse<R::Response>, BinanceError> {
+        let mut params = build_params(req);
+        let body = build_body(req);
+
+        if !params.is_empty() {
+            params.push('&');
+        }
+        params.push_str(&format!("timestamp={}", Utc::now().timestamp_millis()));
+
+        let signature = signature(&params, &body, api_secret);
+        params.push_str(&format!("&signature={}", signature));
 
         let path = R::ENDPOINT;
 
@@ -81,16 +138,10 @@ impl BinanceClient {
                 HeaderValue::from_static("application/x-www-form-urlencoded"),
             );
         }
-        if R::SIGNED || R::KEYED {
-            let key = match api_key {
-                Some(key) => key,
-                None => return Err(BinanceError::MissingApiKey),
-            };
-            custom_headers.insert(
-                HeaderName::from_static("x-mbx-apikey"),
-                HeaderValue::from_str(key).map_err(|_| BinanceError::InvalidApiKey)?,
-            );
-        }
+        custom_headers.insert(
+            HeaderName::from_static("x-mbx-apikey"),
+            HeaderValue::from_str(api_key).map_err(|_| BinanceError::InvalidApiKey)?,
+        );
 
         let resp = self
             .client
@@ -104,6 +155,22 @@ impl BinanceClient {
     }
 }
 
+fn build_params<R: SignedRequest>(request: &R) -> String {
+    if matches!(R::METHOD, Method::GET) {
+        serde_qs::to_string(request).unwrap()
+    } else {
+        String::new()
+    }
+}
+
+fn build_body<R: SignedRequest>(request: &R) -> String {
+    if !matches!(R::METHOD, Method::GET) {
+        serde_qs::to_string(request).unwrap()
+    } else {
+        String::new()
+    }
+}
+
 fn signature(params: &str, body: &str, secret: &str) -> String {
     // Signature: hex(HMAC_SHA256(queries + data))
     let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes()).unwrap();
@@ -112,7 +179,9 @@ fn signature(params: &str, body: &str, secret: &str) -> String {
     hexify(mac.finalize().into_bytes())
 }
 
-async fn handle_response<O: DeserializeOwned>(resp: Response) -> Result<BinanceResponse<O>, BinanceError> {
+async fn handle_response<O: DeserializeOwned>(
+    resp: Response,
+) -> Result<BinanceResponse<O>, BinanceError> {
     let status_code = resp.status();
     let headers = resp.headers().clone();
     let resp_text = resp.text().await?;
@@ -132,6 +201,6 @@ async fn handle_response<O: DeserializeOwned>(resp: Response) -> Result<BinanceR
             eprintln!("Failed to parse response:");
             eprintln!("{:#?}", val.as_object().unwrap());
             panic!("parsing error: {}", e);
-        },
+        }
     }
 }

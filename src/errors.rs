@@ -27,10 +27,6 @@ pub(crate) enum BinanceResponseContent<T> {
 pub enum BinanceError {
     #[error("Api key is invalid")]
     InvalidApiKey,
-    #[error("No Api key set for private api")]
-    MissingApiKey,
-    #[error("No Api secret set for private api")]
-    MissingApiSecret,
     #[error("Error when try to connect websocket: {status_code} - {body}")]
     StartWebsocketError {
         status_code: StatusCode,
@@ -51,11 +47,9 @@ pub enum BinanceError {
 }
 
 impl BinanceError {
-    fn is_server_error(&self) -> bool {
+    pub fn is_server_error(&self) -> bool {
         match self {
             BinanceError::InvalidApiKey => false,
-            BinanceError::MissingApiKey => false,
-            BinanceError::MissingApiSecret => false,
             BinanceError::StartWebsocketError { status_code, .. } => status_code.is_server_error(),
             BinanceError::BinanceResponse { status_code, .. } => status_code.is_server_error(),
             BinanceError::WebsocketError(_) => false,

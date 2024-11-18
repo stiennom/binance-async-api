@@ -1,4 +1,4 @@
-use super::Request;
+use super::{KeyedRequest, Request, SignedRequest};
 use crate::client::Product;
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
@@ -105,12 +105,14 @@ pub enum SymbolFilter {
     },
 }
 
-impl Request for ExchangeInfoRequest {
+impl SignedRequest for ExchangeInfoRequest {
     const PRODUCT: Product = Product::UsdMFutures;
     const METHOD: Method = Method::GET;
     const ENDPOINT: &'static str = "/fapi/v1/exchangeInfo";
     type Response = ExchangeInfoResponse;
 }
+impl KeyedRequest for ExchangeInfoRequest {}
+impl Request for ExchangeInfoRequest {}
 
 #[derive(Debug, Clone, Copy, Default, Serialize)]
 pub struct OrderBookRequest<'a> {
@@ -137,12 +139,14 @@ pub struct BookLevel {
     pub qty: String,
 }
 
-impl<'a> Request for OrderBookRequest<'a> {
+impl SignedRequest for OrderBookRequest<'_> {
     const PRODUCT: Product = Product::UsdMFutures;
     const METHOD: Method = Method::GET;
     const ENDPOINT: &'static str = "/fapi/v1/depth";
     type Response = OrderBookResponse;
 }
+impl KeyedRequest for OrderBookRequest<'_> {}
+impl Request for OrderBookRequest<'_> {}
 
 #[derive(Debug, Clone, Copy, Default, Serialize)]
 pub struct PriceTickerRequest<'a> {
@@ -156,12 +160,14 @@ pub struct PriceTickerResponse {
     pub time: usize,
 }
 
-impl<'a> Request for PriceTickerRequest<'a> {
+impl SignedRequest for PriceTickerRequest<'_> {
     const PRODUCT: Product = Product::UsdMFutures;
     const METHOD: Method = Method::GET;
     const ENDPOINT: &'static str = "/fapi/v1/ticker/price";
     type Response = PriceTickerResponse;
 }
+impl KeyedRequest for PriceTickerRequest<'_> {}
+impl Request for PriceTickerRequest<'_> {}
 
 #[derive(Debug, Clone, Copy, Default, Serialize)]
 pub struct BookTickerRequest<'a> {
@@ -179,12 +185,14 @@ pub struct BookTickerResponse {
     pub time: usize,
 }
 
-impl<'a> Request for BookTickerRequest<'a> {
+impl SignedRequest for BookTickerRequest<'_> {
     const PRODUCT: Product = Product::UsdMFutures;
     const METHOD: Method = Method::GET;
     const ENDPOINT: &'static str = "/fapi/v1/ticker/bookTicker";
     type Response = BookTickerResponse;
 }
+impl KeyedRequest for BookTickerRequest<'_> {}
+impl Request for BookTickerRequest<'_> {}
 
 #[derive(Debug, Clone, Copy, Default, Serialize)]
 pub struct CreateListenKeyRequest {}
@@ -195,13 +203,13 @@ pub struct CreateListenKeyResponse {
     pub listen_key: String,
 }
 
-impl Request for CreateListenKeyRequest {
+impl SignedRequest for CreateListenKeyRequest {
     const PRODUCT: Product = Product::UsdMFutures;
     const METHOD: Method = Method::POST;
     const ENDPOINT: &'static str = "/fapi/v1/listenKey";
-    const KEYED: bool = true;
     type Response = CreateListenKeyResponse;
 }
+impl KeyedRequest for CreateListenKeyRequest {}
 
 #[derive(Debug, Clone, Copy, Default, Serialize)]
 pub struct KeepAliveListenKeyRequest {}
@@ -209,13 +217,13 @@ pub struct KeepAliveListenKeyRequest {}
 #[derive(Debug, Clone, Deserialize)]
 pub struct KeepAliveListenKeyResponse {}
 
-impl Request for KeepAliveListenKeyRequest {
+impl SignedRequest for KeepAliveListenKeyRequest {
     const PRODUCT: Product = Product::UsdMFutures;
     const METHOD: Method = Method::PUT;
     const ENDPOINT: &'static str = "/fapi/v1/listenKey";
-    const KEYED: bool = true;
     type Response = KeepAliveListenKeyResponse;
 }
+impl KeyedRequest for KeepAliveListenKeyRequest {}
 
 #[derive(Debug, Clone, Copy, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -228,12 +236,10 @@ pub struct ChangePositionModeRequest<'a> {
 #[derive(Debug, Clone, Deserialize)]
 pub struct ChangePositionModeResponse {}
 
-impl<'a> Request for ChangePositionModeRequest<'a> {
+impl SignedRequest for ChangePositionModeRequest<'_> {
     const PRODUCT: Product = Product::UsdMFutures;
     const METHOD: Method = Method::POST;
     const ENDPOINT: &'static str = "/fapi/v1/positionSide/dual";
-    const KEYED: bool = true;
-    const SIGNED: bool = true;
     type Response = ChangePositionModeResponse;
 }
 
@@ -305,12 +311,10 @@ pub struct NewOrderResponse {
     pub good_till_date: usize,
 }
 
-impl<'a> Request for NewOrderRequest<'a> {
+impl SignedRequest for NewOrderRequest<'_> {
     const PRODUCT: Product = Product::UsdMFutures;
     const METHOD: Method = Method::POST;
     const ENDPOINT: &'static str = "/fapi/v1/order";
-    const KEYED: bool = true;
-    const SIGNED: bool = true;
     type Response = NewOrderResponse;
 }
 
@@ -355,12 +359,10 @@ pub struct CancelOrderResponse {
     pub good_till_date: usize,
 }
 
-impl<'a> Request for CancelOrderRequest<'a> {
+impl SignedRequest for CancelOrderRequest<'_> {
     const PRODUCT: Product = Product::UsdMFutures;
     const METHOD: Method = Method::DELETE;
     const ENDPOINT: &'static str = "/fapi/v1/order";
-    const KEYED: bool = true;
-    const SIGNED: bool = true;
     type Response = CancelOrderResponse;
 }
 
@@ -380,12 +382,10 @@ pub struct UserCommissionRateResponse {
     pub taker_commission_rate: String,
 }
 
-impl<'a> Request for UserCommissionRateRequest<'a> {
+impl SignedRequest for UserCommissionRateRequest<'_> {
     const PRODUCT: Product = Product::UsdMFutures;
     const METHOD: Method = Method::GET;
     const ENDPOINT: &'static str = "/fapi/v1/commissionRate";
-    const KEYED: bool = true;
-    const SIGNED: bool = true;
     type Response = UserCommissionRateResponse;
 }
 
@@ -399,8 +399,7 @@ mod tests {
     fn test_exchange_info_request() {
         let client = client::BinanceClient::new();
         let req = ExchangeInfoRequest;
-        let res = block_on(client.request(req, None, None))
-            .expect("Failed to get exchange info");
+        let res = block_on(client.request(&req)).expect("Failed to get exchange info");
         assert!(res.status_code.is_success());
     }
 
@@ -411,8 +410,7 @@ mod tests {
             symbol: "BTCUSDT",
             limit: Some(5),
         };
-        let res = block_on(client.request(req, None, None))
-            .expect("Failed to get order book");
+        let res = block_on(client.request(&req)).expect("Failed to get order book");
         assert!(res.status_code.is_success());
     }
 
@@ -420,8 +418,7 @@ mod tests {
     fn test_price_ticker_request() {
         let client = client::BinanceClient::new();
         let req = PriceTickerRequest { symbol: "BTCUSDT" };
-        let res = block_on(client.request(req, None, None))
-            .expect("Failed to get price ticker");
+        let res = block_on(client.request(&req)).expect("Failed to get price ticker");
         assert!(res.status_code.is_success());
     }
 
@@ -429,8 +426,7 @@ mod tests {
     fn test_book_ticker_request() {
         let client = client::BinanceClient::new();
         let req = BookTickerRequest { symbol: "BTCUSDT" };
-        let res = block_on(client.request(req, None, None))
-            .expect("Failed to get book ticker");
+        let res = block_on(client.request(&req)).expect("Failed to get book ticker");
         assert!(res.status_code.is_success());
     }
 }
