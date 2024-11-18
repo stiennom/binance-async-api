@@ -1,4 +1,4 @@
-use reqwest::{StatusCode, header::HeaderMap};
+use reqwest::{header::HeaderMap, StatusCode};
 use serde::Deserialize;
 use thiserror::Error;
 use tokio_tungstenite::tungstenite;
@@ -48,4 +48,18 @@ pub enum BinanceError {
     WebsocketError(#[from] tungstenite::Error),
     #[error(transparent)]
     RequestError(#[from] reqwest::Error),
+}
+
+impl BinanceError {
+    fn is_server_error(&self) -> bool {
+        match self {
+            BinanceError::InvalidApiKey => false,
+            BinanceError::MissingApiKey => false,
+            BinanceError::MissingApiSecret => false,
+            BinanceError::StartWebsocketError { status_code, .. } => status_code.is_server_error(),
+            BinanceError::BinanceResponse { status_code, .. } => status_code.is_server_error(),
+            BinanceError::WebsocketError(_) => false,
+            BinanceError::RequestError(e) => e.status().is_some_and(|s| s.is_server_error()),
+        }
+    }
 }

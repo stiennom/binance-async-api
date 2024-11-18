@@ -11,7 +11,10 @@ use reqwest::Url;
 use serde::de::DeserializeOwned;
 use serde_json::{from_str, Value};
 use std::{
-    marker::PhantomData, pin::Pin, str::FromStr, task::{Context, Poll}
+    marker::PhantomData,
+    pin::Pin,
+    str::FromStr,
+    task::{Context, Poll},
 };
 use tokio::net::TcpStream;
 use tokio_tungstenite::{
@@ -58,7 +61,7 @@ impl<E: DeserializeOwned + Unpin> Stream for BinanceWebsocket<E> {
                 eprintln!("Failed to parse event:");
                 eprintln!("{:#?}", val.as_object().unwrap());
                 panic!("parsing error: {}", e);
-            },
+            }
         };
 
         Poll::Ready(Some(Ok(event)))
@@ -83,7 +86,8 @@ impl BinanceClient {
                 return Err(BinanceError::StartWebsocketError {
                     status_code: http.status(),
                     headers: http.headers().clone(),
-                    body: String::from_utf8_lossy(http.body().as_deref().unwrap_or_default()).to_string(),
+                    body: String::from_utf8_lossy(http.body().as_deref().unwrap_or_default())
+                        .to_string(),
                 })
             }
             Err(e) => return Err(e.into()),
