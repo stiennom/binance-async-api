@@ -5,202 +5,207 @@ pub mod usdm;
 use std::str::FromStr;
 
 use crate::{
-    client::{BinanceClient, Product},
-    errors::{BinanceError, BinanceResponse, BinanceResponseContent},
+    client::BinanceClient,
+    errors::{BinanceError, BinanceResponseError},
 };
-use chrono::Utc;
 use hex::encode as hexify;
 use hmac::{Hmac, Mac};
 use reqwest::{
-    header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE, USER_AGENT},
-    Method, Response,
+    header::{HeaderMap, HeaderName, HeaderValue, USER_AGENT},
+    Method, Response, StatusCode,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{from_str, Value};
 use sha2::Sha256;
+use thiserror::Error;
 
-pub trait Request: Serialize + KeyedRequest {}
-
-pub trait KeyedRequest: Serialize + SignedRequest {}
-
-pub trait SignedRequest: Serialize {
-    const PRODUCT: Product;
+pub trait PublicRequest<T>: Serialize {
     const ENDPOINT: &'static str;
     const METHOD: Method;
     type Response: DeserializeOwned;
 }
 
-impl BinanceClient {
-    pub async fn request<R: Request>(
+pub trait KeyedRequest<T>: Serialize {
+    const ENDPOINT: &'static str;
+    const METHOD: Method;
+    type Response: DeserializeOwned;
+}
+
+pub trait SignedRequest<T>: Serialize {
+    const ENDPOINT: &'static str;
+    const METHOD: Method;
+    type Response: DeserializeOwned;
+
+    fn timestamp(&self) -> u64;
+    fn recv_window(&self) -> u64;
+}
+
+#[derive(Debug, Clone)]
+pub struct BinanceResponse<T> {
+    pub status_code: StatusCode,
+    pub headers: HeaderMap,
+    pub content: T,
+}
+
+#[derive(Debug, Clone, Error)]
+pub enum BinanceRequestError {
+    #[error("Api key is invalid")]
+    InvalidApiKey,
+    #[error(
+        "Binance returns error (status: {:?})\ncontent: {:?}",
+        status_code,
+        content
+    )]
+    BinanceResponse {
+        status_code: StatusCode,
+        headers: HeaderMap,
+        content: Option<BinanceResponseError>,
+    },
+}
+
+impl BinanceError for BinanceRequestError {
+    fn is_server_error(&self) -> bool {
+        match self {
+            Self::InvalidApiKey => false,
+            Self::BinanceResponse { status_code, .. } => status_code.is_server_error(),
+        }
+    }
+}
+
+impl<T> BinanceClient<T> {
+    pub async fn request<R: PublicRequest<T>>(
         &self,
         req: &R,
-    ) -> Result<BinanceResponse<R::Response>, BinanceError> {
-        let params = build_params(req);
-        let body = build_body(req);
-        let path = R::ENDPOINT;
-        let base = match R::PRODUCT {
-            Product::Spot => self.config.rest_api_endpoint,
-            Product::UsdMFutures => self.config.usdm_futures_rest_api_endpoint,
-            Product::CoinMFutures => self.config.coinm_futures_rest_api_endpoint,
-        };
-        let url = format!("{base}{path}?{params}");
+    ) -> Result<BinanceResponse<R::Response>, BinanceRequestError> {
+        let base = &self.config.rest_base_url;
+        let endpoint = R::ENDPOINT;
+        let params = serde_qs::to_string(req).unwrap();
+        let url = format!("{base}{endpoint}?{params}");
 
-        let mut custom_headers = HeaderMap::new();
-        custom_headers.insert(USER_AGENT, HeaderValue::from_static("binance-async-api"));
-        if !body.is_empty() {
-            custom_headers.insert(
-                CONTENT_TYPE,
-                HeaderValue::from_static("application/x-www-form-urlencoded"),
-            );
-        }
+        let mut headers = HeaderMap::new();
+        headers.insert(USER_AGENT, HeaderValue::from_static("binance-async-api"));
 
         let resp = self
             .client
             .request(R::METHOD, url.as_str())
-            .headers(custom_headers)
-            .body(body)
+            .headers(headers)
             .send()
-            .await?;
+            .await
+            .unwrap(); // Redirect error should not happen with correct use of binance API
 
         handle_response(resp).await
     }
 
-    pub async fn keyed_request<R: KeyedRequest>(
+    pub async fn keyed_request<R: KeyedRequest<T>>(
         &self,
         req: &R,
         api_key: &str,
-    ) -> Result<BinanceResponse<R::Response>, BinanceError> {
-        let params = build_params(req);
-        let body = build_body(req);
-        let path = R::ENDPOINT;
-        let base = match R::PRODUCT {
-            Product::Spot => self.config.rest_api_endpoint,
-            Product::UsdMFutures => self.config.usdm_futures_rest_api_endpoint,
-            Product::CoinMFutures => self.config.coinm_futures_rest_api_endpoint,
-        };
-        let url = format!("{base}{path}?{params}");
+    ) -> Result<BinanceResponse<R::Response>, BinanceRequestError> {
+        let base = &self.config.rest_base_url;
+        let endpoint = R::ENDPOINT;
+        let params = serde_qs::to_string(req).unwrap();
+        let url = format!("{base}{endpoint}?{params}");
 
         let mut custom_headers = HeaderMap::new();
         custom_headers.insert(USER_AGENT, HeaderValue::from_static("binance-async-api"));
-        if !body.is_empty() {
-            custom_headers.insert(
-                CONTENT_TYPE,
-                HeaderValue::from_static("application/x-www-form-urlencoded"),
-            );
-        }
         custom_headers.insert(
             HeaderName::from_static("x-mbx-apikey"),
-            HeaderValue::from_str(api_key).map_err(|_| BinanceError::InvalidApiKey)?,
+            HeaderValue::from_str(api_key).map_err(|_| BinanceRequestError::InvalidApiKey)?,
         );
 
         let resp = self
             .client
             .request(R::METHOD, url.as_str())
             .headers(custom_headers)
-            .body(body)
             .send()
-            .await?;
+            .await
+            .unwrap(); // Redirect error should not happen with correct use of binance API
 
         handle_response(resp).await
     }
 
-    pub async fn signed_request<R: Request>(
+    pub async fn signed_request<R: PublicRequest<T>>(
         &self,
         req: &R,
         api_key: &str,
         api_secret: &str,
-    ) -> Result<BinanceResponse<R::Response>, BinanceError> {
-        let mut params = build_params(req);
-        let body = build_body(req);
+    ) -> Result<BinanceResponse<R::Response>, BinanceRequestError> {
+        let base = &self.config.rest_base_url;
+        let endpoint = R::ENDPOINT;
+        let mut params = serde_qs::to_string(req).unwrap();
 
-        if !params.is_empty() {
-            params.push('&');
-        }
-        params.push_str(&format!("timestamp={}", Utc::now().timestamp_millis()));
-
-        let signature = signature(&params, &body, api_secret);
+        let signature = signature(&params, api_secret);
         params.push_str(&format!("&signature={}", signature));
 
-        let path = R::ENDPOINT;
-
-        let base = match R::PRODUCT {
-            Product::Spot => self.config.rest_api_endpoint,
-            Product::UsdMFutures => self.config.usdm_futures_rest_api_endpoint,
-            Product::CoinMFutures => self.config.coinm_futures_rest_api_endpoint,
-        };
-        let url = format!("{base}{path}?{params}");
+        let url = format!("{base}{endpoint}?{params}");
 
         let mut custom_headers = HeaderMap::new();
         custom_headers.insert(USER_AGENT, HeaderValue::from_static("binance-async-api"));
-        if !body.is_empty() {
-            custom_headers.insert(
-                CONTENT_TYPE,
-                HeaderValue::from_static("application/x-www-form-urlencoded"),
-            );
-        }
         custom_headers.insert(
             HeaderName::from_static("x-mbx-apikey"),
-            HeaderValue::from_str(api_key).map_err(|_| BinanceError::InvalidApiKey)?,
+            HeaderValue::from_str(api_key).map_err(|_| BinanceRequestError::InvalidApiKey)?,
         );
 
         let resp = self
             .client
             .request(R::METHOD, url.as_str())
             .headers(custom_headers)
-            .body(body)
             .send()
-            .await?;
+            .await
+            .unwrap(); // Redirect error should not happen with correct use of binance API
 
         handle_response(resp).await
     }
 }
 
-fn build_params<R: SignedRequest>(request: &R) -> String {
-    if matches!(R::METHOD, Method::GET) {
-        serde_qs::to_string(request).unwrap()
-    } else {
-        String::new()
-    }
-}
-
-fn build_body<R: SignedRequest>(request: &R) -> String {
-    if !matches!(R::METHOD, Method::GET) {
-        serde_qs::to_string(request).unwrap()
-    } else {
-        String::new()
-    }
-}
-
-fn signature(params: &str, body: &str, secret: &str) -> String {
+fn signature(params: &str, secret: &str) -> String {
     // Signature: hex(HMAC_SHA256(queries + data))
     let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes()).unwrap();
-    let sign_message = format!("{}{}", params, body);
-    mac.update(sign_message.as_bytes());
+    mac.update(params.as_bytes());
     hexify(mac.finalize().into_bytes())
 }
 
 async fn handle_response<O: DeserializeOwned>(
     resp: Response,
-) -> Result<BinanceResponse<O>, BinanceError> {
+) -> Result<BinanceResponse<O>, BinanceRequestError> {
     let status_code = resp.status();
     let headers = resp.headers().clone();
-    let resp_text = resp.text().await?;
-    match from_str(&resp_text) {
-        Ok(BinanceResponseContent::Success(content)) => Ok(BinanceResponse {
-            status_code,
-            headers,
-            content,
-        }),
-        Ok(BinanceResponseContent::Error(content)) => Err(BinanceError::BinanceResponse {
-            status_code,
-            headers,
-            content,
-        }),
-        Err(e) => {
-            let val = Value::from_str(&resp_text).unwrap();
-            eprintln!("Failed to parse response:");
-            eprintln!("{:#?}", val.as_object().unwrap());
-            panic!("parsing error: {}", e);
+    if status_code.is_success() {
+        // status is success so text should be safe to unwrap
+        let resp_text = resp.text().await.unwrap();
+        match from_str(&resp_text) {
+            Ok(content) => Ok(BinanceResponse {
+                status_code,
+                headers,
+                content,
+            }),
+            Err(e) => {
+                let val = Value::from_str(&resp_text).unwrap();
+                eprintln!("Failed to parse response:");
+                eprintln!("{:#?}", val.as_object().unwrap());
+                panic!("parsing error: {}", e);
+            }
+        }
+    } else {
+        match resp.text().await {
+            Ok(resp_text) => match from_str(&resp_text) {
+                Ok(content) => Err(BinanceRequestError::BinanceResponse {
+                    status_code,
+                    headers,
+                    content: Some(content),
+                }),
+                Err(e) => {
+                    let val = Value::from_str(&resp_text).unwrap();
+                    eprintln!("Failed to parse response:");
+                    eprintln!("{:#?}", val.as_object().unwrap());
+                    panic!("parsing error: {}", e);
+                }
+            },
+            Err(_) => Err(BinanceRequestError::BinanceResponse {
+                status_code,
+                headers,
+                content: None,
+            }),
         }
     }
 }

@@ -1,55 +1,55 @@
+use crate::client::Usdm;
+
 use super::StreamTopic;
-use crate::client::Product;
 use serde::Deserialize;
 
-#[derive(Debug, Clone, Copy)]
-pub struct AggTradeStream<'a> {
-    pub symbol: &'a str,
+#[derive(Debug, Clone)]
+pub struct AggTradeStream {
+    pub symbol: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct AggTradeEvent {
     #[serde(rename = "E")]
-    pub event_time: usize,
+    pub event_time: u64,
     #[serde(rename = "s")]
     pub symbol: String,
     #[serde(rename = "a")]
-    pub id: usize,
+    pub id: u64,
     #[serde(rename = "p")]
     pub price: String,
     #[serde(rename = "q")]
     pub qty: String,
     #[serde(rename = "f")]
-    pub first_trade_id: usize,
+    pub first_trade_id: u64,
     #[serde(rename = "l")]
-    pub last_trade_id: usize,
+    pub last_trade_id: u64,
     #[serde(rename = "T")]
-    pub trade_time: usize,
+    pub trade_time: u64,
     #[serde(rename = "m")]
     pub buyer_is_maker: bool,
 }
 
-impl StreamTopic for AggTradeStream<'_> {
-    const PRODUCT: Product = Product::UsdMFutures;
+impl StreamTopic<Usdm> for AggTradeStream {
     fn endpoint(&self) -> String {
         format!("/ws/{}@aggTrade", self.symbol.to_lowercase())
     }
     type Event = AggTradeEvent;
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct BookTickerStream<'a> {
-    pub symbol: &'a str,
+#[derive(Debug, Clone)]
+pub struct BookTickerStream {
+    pub symbol: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct BookTickerEvent {
     #[serde(rename = "u")]
-    pub order_book_update_id: usize,
+    pub order_book_update_id: u64,
     #[serde(rename = "E")]
-    pub event_time: usize,
+    pub event_time: u64,
     #[serde(rename = "T")]
-    pub transaction_time: usize,
+    pub transaction_time: u64,
     #[serde(rename = "s")]
     pub symbol: String,
     #[serde(rename = "b")]
@@ -62,8 +62,7 @@ pub struct BookTickerEvent {
     pub best_ask_qty: String,
 }
 
-impl StreamTopic for BookTickerStream<'_> {
-    const PRODUCT: Product = Product::UsdMFutures;
+impl StreamTopic<Usdm> for BookTickerStream {
     fn endpoint(&self) -> String {
         format!("/ws/{}@bookTicker", self.symbol.to_lowercase())
     }
@@ -73,17 +72,17 @@ impl StreamTopic for BookTickerStream<'_> {
 #[derive(Debug, Clone, Deserialize)]
 pub struct DiffDepthEvent {
     #[serde(rename = "E")]
-    pub event_time: usize,
+    pub event_time: u64,
     #[serde(rename = "T")]
-    pub transaction_time: usize,
+    pub transaction_time: u64,
     #[serde(rename = "s")]
     pub symbol: String,
     #[serde(rename = "U")]
-    pub first_update_id: usize,
+    pub first_update_id: u64,
     #[serde(rename = "u")]
-    pub final_update_id: usize,
+    pub final_update_id: u64,
     #[serde(rename = "pu")]
-    pub last_event_final_update_id: usize,
+    pub last_event_final_update_id: u64,
     #[serde(rename = "b")]
     pub bid_updates: Vec<BookLevelUpdate>,
     #[serde(rename = "a")]
@@ -96,22 +95,21 @@ pub struct BookLevelUpdate {
     pub qty: String,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct DiffDepthStream<'a> {
-    pub symbol: &'a str,
+#[derive(Debug, Clone)]
+pub struct DiffDepthStream {
+    pub symbol: String,
 }
 
-impl StreamTopic for DiffDepthStream<'_> {
-    const PRODUCT: Product = Product::UsdMFutures;
+impl StreamTopic<Usdm> for DiffDepthStream {
     fn endpoint(&self) -> String {
         format!("/ws/{}@depth@100ms", self.symbol.to_lowercase())
     }
     type Event = DiffDepthEvent;
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct UserStream<'a> {
-    pub listen_key: &'a str,
+#[derive(Debug, Clone)]
+pub struct UserStream {
+    pub listen_key: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -137,7 +135,7 @@ pub struct PositionMarginCall {
 #[derive(Debug, Clone, Deserialize)]
 pub struct MarginCallEvent {
     #[serde(rename = "E")]
-    pub event_time: usize,
+    pub event_time: u64,
     #[serde(rename = "cw")]
     pub cross_wallet_balance: Option<String>,
     #[serde(rename = "p")]
@@ -147,9 +145,9 @@ pub struct MarginCallEvent {
 #[derive(Debug, Clone, Deserialize)]
 pub struct BalancePositionUpdateEvent {
     #[serde(rename = "E")]
-    pub event_time: usize,
+    pub event_time: u64,
     #[serde(rename = "T")]
-    pub transaction_time: usize,
+    pub transaction_time: u64,
     #[serde(rename = "a")]
     pub balance_position_update: BalancePositionUpdate,
 }
@@ -201,9 +199,9 @@ pub struct PositionUpdate {
 #[derive(Debug, Clone, Deserialize)]
 pub struct OrderUpdateEvent {
     #[serde(rename = "E")]
-    pub event_time: usize,
+    pub event_time: u64,
     #[serde(rename = "T")]
-    pub transaction_time: usize,
+    pub transaction_time: u64,
     #[serde(rename = "o")]
     pub order_update: OrderUpdate,
 }
@@ -233,7 +231,7 @@ pub struct OrderUpdate {
     #[serde(rename = "X")]
     pub current_order_status: String,
     #[serde(rename = "i")]
-    pub order_id: usize,
+    pub order_id: u64,
     #[serde(rename = "l")]
     pub last_filled_qty: String,
     #[serde(rename = "z")]
@@ -245,9 +243,9 @@ pub struct OrderUpdate {
     #[serde(rename = "n")]
     pub commission_amount: Option<String>,
     #[serde(rename = "T")]
-    pub order_trade_time: usize,
+    pub order_trade_time: u64,
     #[serde(rename = "t")]
-    pub order_trade_id: usize,
+    pub order_trade_id: u64,
     #[serde(rename = "b")]
     pub bid_notional: String,
     #[serde(rename = "a")]
@@ -275,15 +273,15 @@ pub struct OrderUpdate {
     #[serde(rename = "V")]
     pub self_trade_prevention_mode: String,
     #[serde(rename = "gtd")]
-    pub good_till_date: usize,
+    pub good_till_date: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct AccountConfigurationUpdateEvent {
     #[serde(rename = "E")]
-    pub event_time: usize,
+    pub event_time: u64,
     #[serde(rename = "T")]
-    pub transaction_time: usize,
+    pub transaction_time: u64,
     #[serde(rename = "ac")]
     pub leverage: Option<LeverageUpdate>,
     #[serde(rename = "ai")]
@@ -295,7 +293,7 @@ pub struct LeverageUpdate {
     #[serde(rename = "s")]
     pub symbol: String,
     #[serde(rename = "l")]
-    pub leverage: usize,
+    pub leverage: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -307,9 +305,9 @@ pub struct MultiAssetModeUpdate {
 #[derive(Debug, Clone, Deserialize)]
 pub struct ConditionalOrderTriggerRejectEvent {
     #[serde(rename = "E")]
-    pub event_time: usize,
+    pub event_time: u64,
     #[serde(rename = "T")]
-    pub transaction_time: usize,
+    pub transaction_time: u64,
     #[serde(rename = "or")]
     pub conditional_order_trigger_reject: ConditionalOrderTriggerReject,
 }
@@ -319,13 +317,13 @@ pub struct ConditionalOrderTriggerReject {
     #[serde(rename = "s")]
     pub symbol: String,
     #[serde(rename = "i")]
-    pub order_id: usize,
+    pub order_id: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ListenKeyExpiredEvent {
     #[serde(rename = "E")]
-    pub event_time: usize,
+    pub event_time: u64,
     #[serde(rename = "listenKey")]
     pub listen_key: String,
 }
@@ -348,10 +346,30 @@ pub enum UserStreamEvent {
     ListenKeyExpired(ListenKeyExpiredEvent),
 }
 
-impl StreamTopic for UserStream<'_> {
-    const PRODUCT: Product = Product::UsdMFutures;
+impl StreamTopic<Usdm> for UserStream {
     fn endpoint(&self) -> String {
         format!("/ws/{}", self.listen_key)
     }
     type Event = UserStreamEvent;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::client::BinanceClient;
+    use futures_util::StreamExt;
+
+    #[tokio::test]
+    async fn test_agg_trade_stream() {
+        let client = BinanceClient::usdm();
+        let stream_topic = AggTradeStream {
+            symbol: "BTCUSDT".to_owned(),
+        };
+        let mut stream = client.connect_stream(&stream_topic).await.unwrap();
+
+        for _ in 0..5 {
+            let event = stream.next().await.unwrap();
+            eprintln!("{:#?}", event);
+        }
+    }
 }

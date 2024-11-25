@@ -2,12 +2,9 @@ pub mod coinm;
 pub mod spot;
 pub mod usdm;
 
-use crate::{
-    client::{BinanceClient, Product},
-    errors::BinanceError,
-};
-use futures_util::{stream::Stream, StreamExt};
-use reqwest::Url;
+use crate::{client::BinanceClient, errors::BinanceError};
+use futures_util::stream::{Stream, StreamExt};
+use reqwest::{header::HeaderMap, StatusCode};
 use serde::de::DeserializeOwned;
 use serde_json::{from_str, Value};
 use std::{
@@ -16,6 +13,7 @@ use std::{
     str::FromStr,
     task::{Context, Poll},
 };
+use thiserror::Error;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{
     connect_async,
@@ -23,10 +21,9 @@ use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream,
 };
 
-pub trait StreamTopic {
-    const PRODUCT: Product;
+pub trait StreamTopic<T> {
     fn endpoint(&self) -> String;
-    type Event: DeserializeOwned + Unpin;
+    type Event: DeserializeOwned;
 }
 
 type WSStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
@@ -36,25 +33,43 @@ pub struct BinanceWebsocket<E> {
     _phantom: PhantomData<E>,
 }
 
+#[derive(Debug, Clone, Error)]
+#[error(
+    "Failed to start websocket (status: {:?})\ncontent: {}",
+    status_code,
+    body
+)]
+pub struct StartWebsocketError {
+    pub status_code: StatusCode,
+    pub headers: HeaderMap,
+    pub body: String,
+}
+
+impl BinanceError for StartWebsocketError {
+    fn is_server_error(&self) -> bool {
+        self.status_code.is_server_error()
+    }
+}
+
 impl<E: DeserializeOwned + Unpin> Stream for BinanceWebsocket<E> {
-    type Item = Result<E, BinanceError>;
+    type Item = E;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let msg = match self.stream.poll_next_unpin(cx) {
             Poll::Ready(Some(Ok(c))) => c,
-            Poll::Ready(Some(Err(e))) => return Poll::Ready(Some(Err(e.into()))),
+            Poll::Ready(Some(Err(_))) | Poll::Ready(None) => return Poll::Ready(None),
             Poll::Pending => return Poll::Pending,
-            Poll::Ready(None) => return Poll::Ready(None),
         };
         let text = match msg {
             Message::Text(msg) => msg,
             Message::Binary(_) | Message::Frame(_) | Message::Pong(_) | Message::Ping(_) => {
+                cx.waker().wake_by_ref();
                 return Poll::Pending;
             }
             Message::Close(_) => return Poll::Ready(None),
         };
 
-        let event: E = match from_str(&text) {
+        let event = match from_str(&text) {
             Ok(r) => r,
             Err(e) => {
                 let val = Value::from_str(&text).unwrap();
@@ -64,33 +79,29 @@ impl<E: DeserializeOwned + Unpin> Stream for BinanceWebsocket<E> {
             }
         };
 
-        Poll::Ready(Some(Ok(event)))
+        Poll::Ready(Some(event))
     }
 }
 
-impl BinanceClient {
-    pub async fn connect_stream<T: StreamTopic>(
+impl<T> BinanceClient<T> {
+    pub async fn connect_stream<S: StreamTopic<T>>(
         &self,
-        topic: &T,
-    ) -> Result<BinanceWebsocket<T::Event>, BinanceError> {
-        let base = match T::PRODUCT {
-            Product::Spot => &self.config.ws_endpoint,
-            Product::UsdMFutures => &self.config.usdm_futures_ws_endpoint,
-            Product::CoinMFutures => &self.config.coinm_futures_ws_endpoint,
-        };
+        topic: &S,
+    ) -> Result<BinanceWebsocket<S::Event>, StartWebsocketError> {
+        let base = &self.config.websocket_base_url;
         let endpoint = topic.endpoint();
-        let url = Url::parse(&format!("{}{}", base, endpoint)).unwrap();
-        let (stream, _) = match connect_async(url).await {
-            Ok(v) => v,
+        let url = format!("{}{}", base, endpoint);
+        let stream = match connect_async(url).await {
+            Ok((s, _)) => s,
             Err(tungstenite::Error::Http(http)) => {
-                return Err(BinanceError::StartWebsocketError {
+                return Err(StartWebsocketError {
                     status_code: http.status(),
                     headers: http.headers().clone(),
                     body: String::from_utf8_lossy(http.body().as_deref().unwrap_or_default())
                         .to_string(),
                 })
             }
-            Err(e) => return Err(e.into()),
+            Err(e) => panic!("Failed to connect websocket: {}", e),
         };
         Ok(BinanceWebsocket {
             stream,
