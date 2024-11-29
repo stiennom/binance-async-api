@@ -4,7 +4,7 @@ use super::{KeyedRequest, PublicRequest, SignedRequest};
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize)]
 pub struct ExchangeInfoRequest;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -112,9 +112,9 @@ impl PublicRequest<Usdm> for ExchangeInfoRequest {
     type Response = ExchangeInfoResponse;
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct OrderBookRequest {
-    pub symbol: String,
+#[derive(Debug, Clone, Copy, Serialize)]
+pub struct OrderBookRequest<'a> {
+    pub symbol: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<u64>,
 }
@@ -137,15 +137,15 @@ pub struct BookLevel {
     pub qty: String,
 }
 
-impl PublicRequest<Usdm> for OrderBookRequest {
+impl PublicRequest<Usdm> for OrderBookRequest<'_> {
     const METHOD: Method = Method::GET;
     const ENDPOINT: &'static str = "/fapi/v1/depth";
     type Response = OrderBookResponse;
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct PriceTickerRequest {
-    pub symbol: String,
+#[derive(Debug, Clone, Copy, Serialize)]
+pub struct PriceTickerRequest<'a> {
+    pub symbol: &'a str,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -155,15 +155,15 @@ pub struct PriceTickerResponse {
     pub time: u64,
 }
 
-impl PublicRequest<Usdm> for PriceTickerRequest {
+impl PublicRequest<Usdm> for PriceTickerRequest<'_> {
     const METHOD: Method = Method::GET;
     const ENDPOINT: &'static str = "/fapi/v1/ticker/price";
     type Response = PriceTickerResponse;
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct BookTickerRequest {
-    pub symbol: String,
+#[derive(Debug, Clone, Copy, Serialize)]
+pub struct BookTickerRequest<'a> {
+    pub symbol: &'a str,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -177,16 +177,16 @@ pub struct BookTickerResponse {
     pub time: u64,
 }
 
-impl PublicRequest<Usdm> for BookTickerRequest {
+impl PublicRequest<Usdm> for BookTickerRequest<'_> {
     const METHOD: Method = Method::GET;
     const ENDPOINT: &'static str = "/fapi/v1/ticker/bookTicker";
     type Response = BookTickerResponse;
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RecentAggTradesRequest {
-    pub symbol: String,
+pub struct RecentAggTradesRequest<'a> {
+    pub symbol: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub from_id: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -215,13 +215,13 @@ pub struct AggTradeResponse {
     pub buyer_is_maker: bool,
 }
 
-impl PublicRequest<Usdm> for RecentAggTradesRequest {
+impl PublicRequest<Usdm> for RecentAggTradesRequest<'_> {
     const METHOD: Method = Method::GET;
     const ENDPOINT: &'static str = "/fapi/v1/aggTrades";
     type Response = Vec<AggTradeResponse>;
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize)]
 pub struct CreateListenKeyRequest {}
 
 #[derive(Debug, Clone, Deserialize)]
@@ -236,11 +236,14 @@ impl KeyedRequest<Usdm> for CreateListenKeyRequest {
     type Response = CreateListenKeyResponse;
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize)]
 pub struct KeepAliveListenKeyRequest {}
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct KeepAliveListenKeyResponse {}
+#[serde(rename_all = "camelCase")]
+pub struct KeepAliveListenKeyResponse {
+    pub listen_key: String,
+}
 
 impl KeyedRequest<Usdm> for KeepAliveListenKeyRequest {
     const METHOD: Method = Method::PUT;
@@ -248,10 +251,22 @@ impl KeyedRequest<Usdm> for KeepAliveListenKeyRequest {
     type Response = KeepAliveListenKeyResponse;
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize)]
+pub struct CloseListenKeyRequest {}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CloseListenKeyResponse {}
+
+impl KeyedRequest<Usdm> for CloseListenKeyRequest {
+    const METHOD: Method = Method::DELETE;
+    const ENDPOINT: &'static str = "/fapi/v1/listenKey";
+    type Response = CloseListenKeyResponse;
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ChangePositionModeRequest {
-    pub dual_side_position: String, // true or false
+pub struct ChangePositionModeRequest<'a> {
+    pub dual_side_position: &'a str, // true or false
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recv_window: Option<u64>, // <= 60_000
     pub timestamp: u64,
@@ -260,7 +275,7 @@ pub struct ChangePositionModeRequest {
 #[derive(Debug, Clone, Deserialize)]
 pub struct ChangePositionModeResponse {}
 
-impl SignedRequest<Usdm> for ChangePositionModeRequest {
+impl SignedRequest<Usdm> for ChangePositionModeRequest<'_> {
     const METHOD: Method = Method::POST;
     const ENDPOINT: &'static str = "/fapi/v1/positionSide/dual";
     type Response = ChangePositionModeResponse;
@@ -273,38 +288,38 @@ impl SignedRequest<Usdm> for ChangePositionModeRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct NewOrderRequest {
-    pub symbol: String,
-    pub side: String,
+pub struct NewOrderRequest<'a> {
+    pub symbol: &'a str,
+    pub side: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub position_side: Option<String>,
-    pub r#type: String,
+    pub position_side: Option<&'a str>,
+    pub r#type: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub time_in_force: Option<String>,
+    pub time_in_force: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub quantity: Option<String>,
+    pub quantity: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reduce_only: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub price: Option<String>,
+    pub price: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub new_client_order_id: Option<String>,
+    pub new_client_order_id: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub stop_price: Option<String>,
+    pub stop_price: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub close_position: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub activation_price: Option<String>,
+    pub activation_price: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub callback_rate: Option<String>,
+    pub callback_rate: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub working_type: Option<String>,
+    pub working_type: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub price_protect: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub self_trade_prevention_mode: Option<String>,
+    pub self_trade_prevention_mode: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub good_till_date: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -342,7 +357,7 @@ pub struct NewOrderResponse {
     pub good_till_date: u64,
 }
 
-impl SignedRequest<Usdm> for NewOrderRequest {
+impl SignedRequest<Usdm> for NewOrderRequest<'_> {
     const METHOD: Method = Method::POST;
     const ENDPOINT: &'static str = "/fapi/v1/order";
     type Response = NewOrderResponse;
@@ -355,14 +370,14 @@ impl SignedRequest<Usdm> for NewOrderRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CancelOrderRequest {
-    pub symbol: String,
+pub struct CancelOrderRequest<'a> {
+    pub symbol: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub order_id: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub orig_client_order_id: Option<String>,
+    pub orig_client_order_id: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recv_window: Option<u64>, // <= 60_000
     pub timestamp: u64,
@@ -397,7 +412,7 @@ pub struct CancelOrderResponse {
     pub good_till_date: u64,
 }
 
-impl SignedRequest<Usdm> for CancelOrderRequest {
+impl SignedRequest<Usdm> for CancelOrderRequest<'_> {
     const METHOD: Method = Method::DELETE;
     const ENDPOINT: &'static str = "/fapi/v1/order";
     type Response = CancelOrderResponse;
@@ -410,10 +425,10 @@ impl SignedRequest<Usdm> for CancelOrderRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct UserCommissionRateRequest {
-    pub symbol: String,
+pub struct UserCommissionRateRequest<'a> {
+    pub symbol: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recv_window: Option<u64>, // <= 60_000
     pub timestamp: u64,
@@ -427,7 +442,7 @@ pub struct UserCommissionRateResponse {
     pub taker_commission_rate: String,
 }
 
-impl SignedRequest<Usdm> for UserCommissionRateRequest {
+impl SignedRequest<Usdm> for UserCommissionRateRequest<'_> {
     const METHOD: Method = Method::GET;
     const ENDPOINT: &'static str = "/fapi/v1/commissionRate";
     type Response = UserCommissionRateResponse;
@@ -449,50 +464,34 @@ mod tests {
     async fn test_exchange_info_request() {
         let client = BinanceClient::usdm();
         let req = ExchangeInfoRequest;
-        let res = client
-            .request(&req)
-            .await
-            .expect("Failed to get exchange info");
-        assert!(res.status_code.is_success());
+        let res = client.request(&req).await.unwrap();
+        assert!(res.status.is_success());
     }
 
     #[tokio::test]
     async fn test_order_book_request() {
         let client = BinanceClient::usdm();
         let req = OrderBookRequest {
-            symbol: "BTCUSDT".to_owned(),
+            symbol: "BTCUSDT",
             limit: Some(5),
         };
-        let res = client
-            .request(&req)
-            .await
-            .expect("Failed to get order book");
-        assert!(res.status_code.is_success());
+        let res = client.request(&req).await.unwrap();
+        assert!(res.status.is_success());
     }
 
     #[tokio::test]
     async fn test_price_ticker_request() {
         let client = BinanceClient::usdm();
-        let req = PriceTickerRequest {
-            symbol: "BTCUSDT".to_owned(),
-        };
-        let res = client
-            .request(&req)
-            .await
-            .expect("Failed to get price ticker");
-        assert!(res.status_code.is_success());
+        let req = PriceTickerRequest { symbol: "BTCUSDT" };
+        let res = client.request(&req).await.unwrap();
+        assert!(res.status.is_success());
     }
 
     #[tokio::test]
     async fn test_book_ticker_request() {
         let client = BinanceClient::usdm();
-        let req = BookTickerRequest {
-            symbol: "BTCUSDT".to_owned(),
-        };
-        let res = client
-            .request(&req)
-            .await
-            .expect("Failed to get book ticker");
-        assert!(res.status_code.is_success());
+        let req = BookTickerRequest { symbol: "BTCUSDT" };
+        let res = client.request(&req).await.unwrap();
+        assert!(res.status.is_success());
     }
 }

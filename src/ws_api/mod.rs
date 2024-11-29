@@ -3,7 +3,8 @@ pub mod usdm;
 
 use crate::{
     client::BinanceClient,
-    errors::{BinanceError, BinanceResponseError},
+    errors::{ContentError, WsConnectionError},
+    response::Response,
 };
 use futures_util::{
     stream::{Stream, StreamExt},
@@ -11,7 +12,6 @@ use futures_util::{
 };
 use hex::encode as hexify;
 use hmac::{Hmac, Mac};
-use reqwest::{header::HeaderMap, StatusCode};
 use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize};
 use serde_json::{from_str, Value};
 use sha2::Sha256;
@@ -21,13 +21,8 @@ use std::{
     str::FromStr,
     task::{Context, Poll},
 };
-use thiserror::Error;
 use tokio::net::TcpStream;
-use tokio_tungstenite::{
-    connect_async,
-    tungstenite::{self, Message},
-    MaybeTlsStream, WebSocketStream,
-};
+use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
 type WSStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
@@ -68,12 +63,13 @@ struct FullSignedRequest<R: Serialize> {
     params: SignedParams<R>,
 }
 
+#[derive(Debug, Clone)]
 pub struct WsApiRequest<T> {
     raw: String,
     _marker: PhantomData<T>,
 }
 
-pub trait WsApiPublicRequest<T>: Serialize {
+pub trait WsApiPublicRequest<T>: Serialize + Clone + Copy {
     fn method(&self) -> &'static str;
 
     fn build(self, id: u64) -> WsApiRequest<T>
@@ -88,7 +84,7 @@ pub trait WsApiPublicRequest<T>: Serialize {
     }
 }
 
-pub trait WsApiKeyedRequest<T>: Serialize {
+pub trait WsApiKeyedRequest<T>: Serialize + Clone + Copy {
     fn method(&self) -> &'static str;
 
     fn build(self, id: u64, api_key: String) -> WsApiRequest<T>
@@ -102,7 +98,7 @@ pub trait WsApiKeyedRequest<T>: Serialize {
         }
     }
 }
-pub trait WsApiSignedRequest<T>: Serialize {
+pub trait WsApiSignedRequest<T>: Serialize + Clone + Copy {
     fn method(&self) -> &'static str;
 
     fn timestamp(&self) -> u64;
@@ -196,16 +192,14 @@ pub struct RateLimit {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WsApiEvent<R: DeserializeOwned> {
-    pub id: u64,
+    pub id: Option<u64>,
     pub status: u16,
     #[serde(flatten, deserialize_with = "deserialize_result_field")]
-    pub result: Result<R, BinanceResponseError>,
+    pub result: Result<R, ContentError>,
     pub rate_limits: Vec<RateLimit>,
 }
 
-fn deserialize_result_field<'de, R, D>(
-    deserializer: D,
-) -> Result<Result<R, BinanceResponseError>, D::Error>
+fn deserialize_result_field<'de, R, D>(deserializer: D) -> Result<Result<R, ContentError>, D::Error>
 where
     R: Deserialize<'de>,
     D: Deserializer<'de>,
@@ -214,7 +208,7 @@ where
     #[serde(untagged)]
     enum RawResult<R> {
         Ok { result: R },
-        Err { error: BinanceResponseError },
+        Err { error: ContentError },
     }
 
     let raw_result = RawResult::deserialize(deserializer)?;
@@ -224,29 +218,12 @@ where
     }
 }
 
-pub trait WsApiResponse<T>: DeserializeOwned {}
+pub trait WsApiResponse<T>: DeserializeOwned + Clone {}
 
+#[derive(Debug)]
 pub struct BinanceWsApi<R> {
     stream: WSStream,
     _marker: PhantomData<R>,
-}
-
-#[derive(Debug, Clone, Error)]
-#[error(
-    "Failed to start ws API (status: {:?})\ncontent: {}",
-    status_code,
-    body
-)]
-pub struct StartWsApiError {
-    pub status_code: StatusCode,
-    pub headers: HeaderMap,
-    pub body: String,
-}
-
-impl BinanceError for StartWsApiError {
-    fn is_server_error(&self) -> bool {
-        self.status_code.is_server_error()
-    }
 }
 
 impl<R: DeserializeOwned + Unpin> Stream for BinanceWsApi<R> {
@@ -306,23 +283,23 @@ impl<T, R: WsApiResponse<T> + Unpin> Sink<WsApiRequest<T>> for BinanceWsApi<R> {
 impl<T> BinanceClient<T> {
     pub async fn connect_ws_api<R: WsApiResponse<T>>(
         &self,
-    ) -> Result<BinanceWsApi<R>, StartWsApiError> {
+    ) -> Result<Response<BinanceWsApi<R>>, WsConnectionError> {
         let base = &self.config.ws_api_base_url;
-        let stream = match connect_async(base).await {
-            Ok((s, _)) => s,
-            Err(tungstenite::Error::Http(http)) => {
-                return Err(StartWsApiError {
-                    status_code: http.status(),
-                    headers: http.headers().clone(),
-                    body: String::from_utf8_lossy(http.body().as_deref().unwrap_or_default())
-                        .to_string(),
+        match connect_async(base).await {
+            Ok((stream, response)) => {
+                let status_code = response.status();
+                let headers = Box::new(response.headers().clone());
+                let ws_api = BinanceWsApi {
+                    stream,
+                    _marker: PhantomData,
+                };
+                Ok(Response {
+                    status: status_code,
+                    headers,
+                    content: ws_api,
                 })
             }
-            Err(e) => panic!("Failed to connect WS API: {}", e),
-        };
-        Ok(BinanceWsApi {
-            stream,
-            _marker: PhantomData,
-        })
+            Err(e) => Err(Box::new(e).into()),
+        }
     }
 }

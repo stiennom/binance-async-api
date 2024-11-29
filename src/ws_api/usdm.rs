@@ -4,19 +4,19 @@ use super::{WsApiPublicRequest, WsApiResponse, WsApiSignedRequest};
 
 pub use crate::rest::usdm::*;
 
-impl<T> WsApiPublicRequest<T> for OrderBookRequest {
+impl<T> WsApiPublicRequest<T> for OrderBookRequest<'_> {
     fn method(&self) -> &'static str {
         "depth"
     }
 }
 
-impl<T> WsApiPublicRequest<T> for PriceTickerRequest {
+impl<T> WsApiPublicRequest<T> for PriceTickerRequest<'_> {
     fn method(&self) -> &'static str {
         "ticker.price"
     }
 }
 
-impl<T> WsApiPublicRequest<T> for BookTickerRequest {
+impl<T> WsApiPublicRequest<T> for BookTickerRequest<'_> {
     fn method(&self) -> &'static str {
         "ticker.book"
     }
@@ -34,7 +34,7 @@ pub struct BookTickerResponse {
     pub time: u64,
 }
 
-impl<T> WsApiSignedRequest<T> for NewOrderRequest {
+impl<T> WsApiSignedRequest<T> for NewOrderRequest<'_> {
     fn method(&self) -> &'static str {
         "order.place"
     }
@@ -47,7 +47,7 @@ impl<T> WsApiSignedRequest<T> for NewOrderRequest {
     }
 }
 
-impl<T> WsApiSignedRequest<T> for CancelOrderRequest {
+impl<T> WsApiSignedRequest<T> for CancelOrderRequest<'_> {
     fn method(&self) -> &'static str {
         "order.cancel"
     }
@@ -82,12 +82,16 @@ mod tests {
     #[tokio::test]
     async fn test_order_book_ws_api_request() {
         let client = BinanceClient::usdm();
-        let mut ws_api = client.connect_ws_api::<WsApiResult>().await.unwrap();
+        let mut ws_api = client
+            .connect_ws_api::<WsApiResult>()
+            .await
+            .unwrap()
+            .content;
 
         eprintln!("connected");
 
         let req: WsApiRequest<Usdm> = OrderBookRequest {
-            symbol: "BTCUSDT".to_owned(),
+            symbol: "BTCUSDT",
             limit: Some(5),
         }
         .build(0);
@@ -98,7 +102,7 @@ mod tests {
 
         eprintln!("{:#?}", resp);
 
-        assert!(resp.id == 0);
+        assert!(resp.id == Some(0));
         assert!(StatusCode::from_u16(resp.status).unwrap().is_success());
         assert!(matches!(resp.result, Ok(WsApiResult::OrderBook(_))));
     }
@@ -106,18 +110,19 @@ mod tests {
     #[tokio::test]
     async fn test_price_ticker_ws_api_request() {
         let client = BinanceClient::usdm();
-        let mut ws_api = client.connect_ws_api::<WsApiResult>().await.unwrap();
+        let mut ws_api = client
+            .connect_ws_api::<WsApiResult>()
+            .await
+            .unwrap()
+            .content;
 
-        let req: WsApiRequest<Usdm> = PriceTickerRequest {
-            symbol: "BTCUSDT".to_owned(),
-        }
-        .build(0);
+        let req: WsApiRequest<Usdm> = PriceTickerRequest { symbol: "BTCUSDT" }.build(0);
         ws_api.send(req).await.unwrap();
         let resp = ws_api.next().await.unwrap();
 
         eprintln!("{:#?}", resp);
 
-        assert!(resp.id == 0);
+        assert!(resp.id == Some(0));
         assert!(StatusCode::from_u16(resp.status).unwrap().is_success());
         assert!(matches!(resp.result, Ok(WsApiResult::PriceTicker(_))));
     }
@@ -125,18 +130,19 @@ mod tests {
     #[tokio::test]
     async fn test_book_ticker_ws_api_request() {
         let client = BinanceClient::usdm();
-        let mut ws_api = client.connect_ws_api::<WsApiResult>().await.unwrap();
+        let mut ws_api = client
+            .connect_ws_api::<WsApiResult>()
+            .await
+            .unwrap()
+            .content;
 
-        let req: WsApiRequest<Usdm> = BookTickerRequest {
-            symbol: "BTCUSDT".to_owned(),
-        }
-        .build(0);
+        let req: WsApiRequest<Usdm> = BookTickerRequest { symbol: "BTCUSDT" }.build(0);
         ws_api.send(req).await.unwrap();
         let resp = ws_api.next().await.unwrap();
 
         eprintln!("{:#?}", resp);
 
-        assert!(resp.id == 0);
+        assert!(resp.id == Some(0));
         assert!(StatusCode::from_u16(resp.status).unwrap().is_success());
         assert!(matches!(resp.result, Ok(WsApiResult::BookTicker(_))));
     }

@@ -3,9 +3,9 @@ use crate::client::Usdm;
 use super::StreamTopic;
 use serde::Deserialize;
 
-#[derive(Debug, Clone)]
-pub struct AggTradeStream {
-    pub symbol: String,
+#[derive(Debug, Clone, Copy)]
+pub struct AggTradeStream<'a> {
+    pub symbol: &'a str,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -30,16 +30,16 @@ pub struct AggTradeEvent {
     pub buyer_is_maker: bool,
 }
 
-impl StreamTopic<Usdm> for AggTradeStream {
+impl StreamTopic<Usdm> for AggTradeStream<'_> {
     fn endpoint(&self) -> String {
         format!("/ws/{}@aggTrade", self.symbol.to_lowercase())
     }
     type Event = AggTradeEvent;
 }
 
-#[derive(Debug, Clone)]
-pub struct BookTickerStream {
-    pub symbol: String,
+#[derive(Debug, Clone, Copy)]
+pub struct BookTickerStream<'a> {
+    pub symbol: &'a str,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -62,7 +62,7 @@ pub struct BookTickerEvent {
     pub best_ask_qty: String,
 }
 
-impl StreamTopic<Usdm> for BookTickerStream {
+impl StreamTopic<Usdm> for BookTickerStream<'_> {
     fn endpoint(&self) -> String {
         format!("/ws/{}@bookTicker", self.symbol.to_lowercase())
     }
@@ -95,21 +95,21 @@ pub struct BookLevelUpdate {
     pub qty: String,
 }
 
-#[derive(Debug, Clone)]
-pub struct DiffDepthStream {
-    pub symbol: String,
+#[derive(Debug, Clone, Copy)]
+pub struct DiffDepthStream<'a> {
+    pub symbol: &'a str,
 }
 
-impl StreamTopic<Usdm> for DiffDepthStream {
+impl StreamTopic<Usdm> for DiffDepthStream<'_> {
     fn endpoint(&self) -> String {
         format!("/ws/{}@depth@100ms", self.symbol.to_lowercase())
     }
     type Event = DiffDepthEvent;
 }
 
-#[derive(Debug, Clone)]
-pub struct UserStream {
-    pub listen_key: String,
+#[derive(Debug, Clone, Copy)]
+pub struct UserStream<'a> {
+    pub listen_key: &'a str,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -346,7 +346,7 @@ pub enum UserStreamEvent {
     ListenKeyExpired(ListenKeyExpiredEvent),
 }
 
-impl StreamTopic<Usdm> for UserStream {
+impl StreamTopic<Usdm> for UserStream<'_> {
     fn endpoint(&self) -> String {
         format!("/ws/{}", self.listen_key)
     }
@@ -362,10 +362,10 @@ mod tests {
     #[tokio::test]
     async fn test_agg_trade_stream() {
         let client = BinanceClient::usdm();
-        let stream_topic = AggTradeStream {
-            symbol: "BTCUSDT".to_owned(),
-        };
-        let mut stream = client.connect_stream(&stream_topic).await.unwrap();
+        let stream_topic = AggTradeStream { symbol: "BTCUSDT" };
+        let response = client.connect_stream(&stream_topic).await.unwrap();
+
+        let mut stream = response.content;
 
         for _ in 0..5 {
             let event = stream.next().await.unwrap();

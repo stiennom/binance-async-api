@@ -2,9 +2,8 @@ pub mod coinm;
 pub mod spot;
 pub mod usdm;
 
-use crate::{client::BinanceClient, errors::BinanceError};
+use crate::{client::BinanceClient, errors::WsConnectionError, response::Response};
 use futures_util::stream::{Stream, StreamExt};
-use reqwest::{header::HeaderMap, StatusCode};
 use serde::de::DeserializeOwned;
 use serde_json::{from_str, Value};
 use std::{
@@ -13,42 +12,20 @@ use std::{
     str::FromStr,
     task::{Context, Poll},
 };
-use thiserror::Error;
 use tokio::net::TcpStream;
-use tokio_tungstenite::{
-    connect_async,
-    tungstenite::{self, Message},
-    MaybeTlsStream, WebSocketStream,
-};
+use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
-pub trait StreamTopic<T> {
+pub trait StreamTopic<T>: Clone + Copy {
     fn endpoint(&self) -> String;
-    type Event: DeserializeOwned;
+    type Event: DeserializeOwned + Clone;
 }
 
 type WSStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
+#[derive(Debug)]
 pub struct BinanceWebsocket<E> {
     stream: WSStream,
-    _phantom: PhantomData<E>,
-}
-
-#[derive(Debug, Clone, Error)]
-#[error(
-    "Failed to start websocket (status: {:?})\ncontent: {}",
-    status_code,
-    body
-)]
-pub struct StartWebsocketError {
-    pub status_code: StatusCode,
-    pub headers: HeaderMap,
-    pub body: String,
-}
-
-impl BinanceError for StartWebsocketError {
-    fn is_server_error(&self) -> bool {
-        self.status_code.is_server_error()
-    }
+    _marker: PhantomData<E>,
 }
 
 impl<E: DeserializeOwned + Unpin> Stream for BinanceWebsocket<E> {
@@ -87,25 +64,25 @@ impl<T> BinanceClient<T> {
     pub async fn connect_stream<S: StreamTopic<T>>(
         &self,
         topic: &S,
-    ) -> Result<BinanceWebsocket<S::Event>, StartWebsocketError> {
+    ) -> Result<Response<BinanceWebsocket<S::Event>>, WsConnectionError> {
         let base = &self.config.websocket_base_url;
         let endpoint = topic.endpoint();
         let url = format!("{}{}", base, endpoint);
-        let stream = match connect_async(url).await {
-            Ok((s, _)) => s,
-            Err(tungstenite::Error::Http(http)) => {
-                return Err(StartWebsocketError {
-                    status_code: http.status(),
-                    headers: http.headers().clone(),
-                    body: String::from_utf8_lossy(http.body().as_deref().unwrap_or_default())
-                        .to_string(),
+        match connect_async(url).await {
+            Ok((stream, response)) => {
+                let status_code = response.status();
+                let headers = Box::new(response.headers().clone());
+                let ws_api = BinanceWebsocket {
+                    stream,
+                    _marker: PhantomData,
+                };
+                Ok(Response {
+                    status: status_code,
+                    headers,
+                    content: ws_api,
                 })
             }
-            Err(e) => panic!("Failed to connect websocket: {}", e),
-        };
-        Ok(BinanceWebsocket {
-            stream,
-            _phantom: PhantomData,
-        })
+            Err(e) => Err(Box::new(e).into()),
+        }
     }
 }
